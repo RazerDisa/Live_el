@@ -26,18 +26,37 @@ function botName(name){return String(name||'').trim().toLowerCase().replace(/^@/
 // Additional usernames can be excluded without editing the file: ?bots=bot1,bot2
 const extraBots=new Set((q.get('bots')||'').split(/[\s,;]+/).map(botName).filter(Boolean));
 function isBot(name){const login=botName(name);return login!==channel&&(knownBots.has(login)||extraBots.has(login))}
-// Hide automated familiars replies from the broadcaster while keeping normal chat.
-// Twitch may deliver an @recipient prefix, or attach reply metadata separately.
-const familiarSignature=/(?:королевство\s+фамильяров|!elgame\b|фамильяр|питомц|прокачк|золото|награды|битва\s+с\s+боссом|\b(?:xp|опыт)\b|уровень|квест|аксессуар|действия\s+и\s+танцы)/iu;
+// Filter only automated replies sent by Live_El's familiars project.
+// Project commandReply() sends: @recipient, <game text> and IRC reply-parent-msg-id.
+const familiarCommands=new Set(['!elgame','!pet','!jump','!sleep','!heart','!dance','!танец','!quest','!attack','!ulta','!feed','!style','!stats','!pay','!boss','!босс','!danceall','!attackall','!setlevel','!addgold']);
+const commandMessageIds=new Map();
+function rememberGameCommand(login,message,tags={}){
+ const id=tags.id;if(!id)return;
+ const cmd=String(message||'').trim().toLowerCase().split(/\s+/)[0];
+ if(familiarCommands.has(cmd))commandMessageIds.set(id,Date.now());
+ const now=Date.now();
+ if(commandMessageIds.size>500)for(const [key,time] of commandMessageIds)if(now-time>600000||commandMessageIds.size>400)commandMessageIds.delete(key);
+}
+const gameText=/^(?:🐾|🎭|💰|👑|⚔|🛡|🪙|⛔|✨|❤️|❌|✅|🎁|🌟|📊|📜|🎯|💤|💖|🦄|🔥|💎|🌸|🪽|🧚|🧚‍♀️|🏆|🧡|🌙|⭐|✦|\+\d+\s*(?:xp|золота)|королевство\s+фамильяров|команды:|формат:\s*!|недостаточно\s+золота|передано\s+\d+\s+золота|сейчас\s+нет\s+активного\s+босса|ультимативную\s+способность)/iu;
+const gameTerms=/(?:королевство\s+фамильяров|\b!elgame\b|\b!pay\b|\b!stats\b|\b!quest\b|\b!feed\b|\b!pet\b|\b!style\b|\b!boss\b|\b!attack\b|\b!ulta\b|фамильяр|питомц|золота|золото|прокачк|уровень|босс|рейд|ультимативн|кормлен|награды|аксессуар|танец|танцы|прыжок|инвентарь|опыт|\bXP\b)/iu;
+// Hide viewer messages that invoke a familiars command, not normal chat mentioning it.
+function isFamiliarCommandMessage(message){
+ const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
+ const command=body.split(/\s+/,1)[0].toLowerCase();
+ return familiarCommands.has(command);
+}
 function isFamiliarReply(login,message,tags={}){
  if(botName(login)!=='live_el')return false;
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
- const withoutMention=body.replace(/^@[a-z0-9_]{1,25}\s*[,，:]?\s*/iu,'').trim();
- // Strong, project-specific signatures can occur with or without @recipient.
- if(/(?:королевство\s+фамильяров|!elgame\b)/iu.test(withoutMention))return true;
- // Other project replies are addressed to a viewer and include game vocabulary.
- const addressed=/^@[a-z0-9_]{1,25}(?=\s|[,，:])/iu.test(body);
- if(addressed&&familiarSignature.test(withoutMention))return true;
+ const mention=body.match(/^@([a-z0-9_]{1,25})\s*[,，:]\s*/iu);
+ const content=mention?body.slice(mention[0].length).trim():body;
+ // Highest-confidence check: Twitch reply metadata points to a known game command.
+ const parent=tags['reply-parent-msg-id'];
+ if(parent&&commandMessageIds.has(parent))return true;
+ // Every project commandReply() prepends @recipient, comma and a game reply.
+ if(mention&&(gameText.test(content)||gameTerms.test(content)))return true;
+ // Main help text may be sent without reply metadata in some clients.
+ if(/^(?:🐾\s*)?королевство\s+фамильяров/iu.test(content))return true;
  return false;
 }
 const messageTimers=new WeakMap();
@@ -112,7 +131,7 @@ function connect(){
   if(line.startsWith('PING')){ws.send(line.replace('PING','PONG'));continue}
   let tags={};if(line.startsWith('@')){const i=line.indexOf(' ');tags=tagsOf(line.slice(1,i));line=line.slice(i+1)}
   const m=line.match(/^:([^! ]+)!\S+ PRIVMSG #\S+ :(.*)$/);
-  if(m&&!isBot(m[1])&&!isFamiliarReply(m[1],m[2],tags)){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}
+  if(m){rememberGameCommand(m[1],m[2],tags);if(!isBot(m[1])&&!isFamiliarCommandMessage(m[2])&&!isFamiliarReply(m[1],m[2],tags)){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}}
   if(line.includes(' CLEARMSG '))for(const el of [...chat.children])if(el.dataset.id===tags['target-msg-id'])removeMessage(el);
   if(line.includes(' CLEARCHAT ')){if(tags['target-user-id']){for(const el of [...chat.children])if(el.dataset.user===tags['target-user-id'])removeMessage(el)}else for(const el of [...chat.children])removeMessage(el)}
   if(line.includes(' RECONNECT '))ws.close();
