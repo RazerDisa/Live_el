@@ -26,18 +26,19 @@ function botName(name){return String(name||'').trim().toLowerCase().replace(/^@/
 // Additional usernames can be excluded without editing the file: ?bots=bot1,bot2
 const extraBots=new Set((q.get('bots')||'').split(/[\s,;]+/).map(botName).filter(Boolean));
 function isBot(name){const login=botName(name);return login!==channel&&(knownBots.has(login)||extraBots.has(login))}
-// Familiars commandReply() sends @recipient, <game response> from live_el.
-// Recognize the reply independently of which viewer requested the command.
-// Twitch IRC reply-parent-msg-id is an additional signal, not a requirement.
-const familiarSignature=/(?:королевство\s+фамильяров|!elgame\b|фамильяр|питомц|прокачк|золото|награды|битва\s+с\s+боссом)/iu;
+// Hide automated familiars replies from the broadcaster while keeping normal chat.
+// Twitch may deliver an @recipient prefix, or attach reply metadata separately.
+const familiarSignature=/(?:королевство\s+фамильяров|!elgame\b|фамильяр|питомц|прокачк|золото|награды|битва\s+с\s+боссом|\b(?:xp|опыт)\b|уровень|квест|аксессуар|действия\s+и\s+танцы)/iu;
 function isFamiliarReply(login,message,tags={}){
- if(botName(login)!==channel)return false;
+ if(botName(login)!=='live_el')return false;
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
- const mention=body.match(/^@([a-z0-9_]{1,25})\s*[,，:]\s*(.+)$/iu);
- if(!mention)return false;
- // Actual game messages use a comma after the addressed username.
- // Keep regular manual replies unless their body contains a game signature.
- return familiarSignature.test(mention[2]) || (Boolean(tags['reply-parent-msg-id']) && /(?:!elgame\b|!stats\b|!quest\b|!feed\b)/iu.test(mention[2]));
+ const withoutMention=body.replace(/^@[a-z0-9_]{1,25}\s*[,，:]?\s*/iu,'').trim();
+ // Strong, project-specific signatures can occur with or without @recipient.
+ if(/(?:королевство\s+фамильяров|!elgame\b)/iu.test(withoutMention))return true;
+ // Other project replies are addressed to a viewer and include game vocabulary.
+ const addressed=/^@[a-z0-9_]{1,25}(?=\s|[,，:])/iu.test(body);
+ if(addressed&&familiarSignature.test(withoutMention))return true;
+ return false;
 }
 const messageTimers=new WeakMap();
 function later(el,fn,ms){let timers=messageTimers.get(el);if(!timers){timers=new Set();messageTimers.set(el,timers)}const id=setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id)}
