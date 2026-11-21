@@ -26,12 +26,18 @@ function botName(name){return String(name||'').trim().toLowerCase().replace(/^@/
 // Additional usernames can be excluded without editing the file: ?bots=bot1,bot2
 const extraBots=new Set((q.get('bots')||'').split(/[\s,;]+/).map(botName).filter(Boolean));
 function isBot(name){const login=botName(name);return login!==channel&&(knownBots.has(login)||extraBots.has(login))}
-// Familiars commandReply() always sends: "@viewer, <response>".
-// Filter only messages from the channel account with that exact opening.
-// Other messages (including ordinary @mentions without a comma) stay visible.
-function isFamiliarReply(login,message){
+// Familiars commandReply() sends @recipient, <game response> from live_el.
+// Recognize the reply independently of which viewer requested the command.
+// Twitch IRC reply-parent-msg-id is an additional signal, not a requirement.
+const familiarSignature=/(?:королевство\s+фамильяров|!elgame\b|фамильяр|питомц|прокачк|золото|награды|битва\s+с\s+боссом)/iu;
+function isFamiliarReply(login,message,tags={}){
  if(botName(login)!==channel)return false;
- return /^\s*@[a-z0-9_]{1,25},\s*\S/iu.test(String(message||''));
+ const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
+ const mention=body.match(/^@([a-z0-9_]{1,25})\s*[,，:]\s*(.+)$/iu);
+ if(!mention)return false;
+ // Actual game messages use a comma after the addressed username.
+ // Keep regular manual replies unless their body contains a game signature.
+ return familiarSignature.test(mention[2]) || (Boolean(tags['reply-parent-msg-id']) && /(?:!elgame\b|!stats\b|!quest\b|!feed\b)/iu.test(mention[2]));
 }
 const messageTimers=new WeakMap();
 function later(el,fn,ms){let timers=messageTimers.get(el);if(!timers){timers=new Set();messageTimers.set(el,timers)}const id=setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id)}
@@ -105,7 +111,7 @@ function connect(){
   if(line.startsWith('PING')){ws.send(line.replace('PING','PONG'));continue}
   let tags={};if(line.startsWith('@')){const i=line.indexOf(' ');tags=tagsOf(line.slice(1,i));line=line.slice(i+1)}
   const m=line.match(/^:([^! ]+)!\S+ PRIVMSG #\S+ :(.*)$/);
-  if(m&&!isBot(m[1])&&!isFamiliarReply(m[1],m[2])){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}
+  if(m&&!isBot(m[1])&&!isFamiliarReply(m[1],m[2],tags)){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}
   if(line.includes(' CLEARMSG '))for(const el of [...chat.children])if(el.dataset.id===tags['target-msg-id'])removeMessage(el);
   if(line.includes(' CLEARCHAT ')){if(tags['target-user-id']){for(const el of [...chat.children])if(el.dataset.user===tags['target-user-id'])removeMessage(el)}else for(const el of [...chat.children])removeMessage(el)}
   if(line.includes(' RECONNECT '))ws.close();
