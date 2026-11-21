@@ -147,4 +147,114 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
+</script><script id="live-el-auto-updater" data-project="chat" data-version="45fcb6974f431907">
+(() => {
+  'use strict';
+
+  const { project, version: loadedVersion } = document.currentScript.dataset;
+  const params = new URLSearchParams(location.search);
+  const pinnedOff = params.get('autoupdate') === '0';
+  const isWebPage = location.protocol === 'https:' || location.protocol === 'http:';
+  const settingKey = 'live-el:auto-update-enabled:v1';
+  const channelName = 'live-el:auto-update-control:v1';
+  const pollInterval = 5 * 60 * 1000;
+
+  let enabled = !pinnedOff;
+  let checking = false;
+  let previousRequest = params.get('_rev');
+  let controlChannel;
+  try {
+    enabled = enabled && localStorage.getItem(settingKey) !== 'false';
+  } catch { /* Storage can be disabled in a browser source. */ }
+
+  // Only the HTML request uses a cache-busting revision. Restore the OBS URL
+  // in the address bar before a user copies it or opens an admin/preview link.
+  if (isWebPage && previousRequest !== null) {
+    const original = new URL(location.href);
+    original.searchParams.delete('_rev');
+    history.replaceState(history.state, '', original.href);
+  }
+
+  async function checkForUpdate() {
+    if (!isWebPage || !enabled || checking) return;
+    checking = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const manifest = new URL('version.json', location.href);
+      manifest.searchParams.set('_t', String(Date.now()));
+      const response = await fetch(manifest, { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) return;
+      const versions = await response.json();
+      const version = versions?.[project];
+      if (!enabled || typeof version !== 'string' || !/^[0-9a-f]{16}$/.test(version) || version === loadedVersion) return;
+
+      // Pages may briefly serve the previous HTML. Wait one polling interval
+      // before retrying that same revision instead of reloading in a loop.
+      if (version === previousRequest) {
+        previousRequest = null;
+        return;
+      }
+      const next = new URL(location.href);
+      next.searchParams.set('_rev', version);
+      location.replace(next.href);
+    } catch { /* A failed poll must leave the live overlay running. */ }
+    finally {
+      clearTimeout(timeout);
+      checking = false;
+    }
+  }
+
+  function applySetting(value) {
+    const wasEnabled = enabled;
+    enabled = !pinnedOff && value;
+    const input = document.getElementById('le-autoupdate-toggle');
+    if (input) input.checked = enabled;
+    if (enabled && !wasEnabled) checkForUpdate();
+  }
+
+  try {
+    controlChannel = new BroadcastChannel(channelName);
+    controlChannel.onmessage = ({ data }) => {
+      if (data?.type === 'setting' && typeof data.enabled === 'boolean') applySetting(data.enabled);
+    };
+  } catch { /* The storage event also synchronizes windows. */ }
+  window.addEventListener('storage', event => {
+    if (event.key === settingKey) applySetting(event.newValue !== 'false');
+  });
+
+  function renderControl() {
+    if (document.getElementById('le-autoupdate-panel')) return;
+    const panel = document.createElement('div');
+    panel.id = 'le-autoupdate-panel';
+    panel.style.cssText = 'position:fixed;right:12px;top:12px;z-index:2147483647;background:#182138ee;color:white;border:1px solid #91a8d0;border-radius:10px;padding:10px 12px;font:13px system-ui;box-shadow:0 4px 18px #0008;pointer-events:auto';
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;gap:8px;align-items:center;cursor:pointer';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'le-autoupdate-toggle';
+    checkbox.checked = enabled;
+    checkbox.disabled = pinnedOff;
+    label.append(checkbox, document.createTextNode('Автообновление OBS (5 мин)'));
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;opacity:.8;margin-top:5px';
+    note.textContent = pinnedOff ? 'Автообновление отключено параметром autoupdate=0.' : 'Отключите во время стрима, чтобы избежать перезагрузки';
+    panel.append(label, note);
+    document.body.append(panel);
+    checkbox.addEventListener('change', () => {
+      applySetting(checkbox.checked);
+      try { localStorage.setItem(settingKey, String(enabled)); } catch { /* Optional storage. */ }
+      controlChannel?.postMessage({ type: 'setting', enabled });
+    });
+  }
+
+  if (project === 'familiars' && params.has('admin')) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderControl, { once: true });
+    else renderControl();
+  }
+  if (isWebPage) {
+    checkForUpdate();
+    setInterval(checkForUpdate, pollInterval);
+  }
+})();
 </script></html>
