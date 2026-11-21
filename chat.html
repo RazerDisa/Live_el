@@ -26,20 +26,12 @@ function botName(name){return String(name||'').trim().toLowerCase().replace(/^@/
 // Additional usernames can be excluded without editing the file: ?bots=bot1,bot2
 const extraBots=new Set((q.get('bots')||'').split(/[\s,;]+/).map(botName).filter(Boolean));
 function isBot(name){const login=botName(name);return login!==channel&&(knownBots.has(login)||extraBots.has(login))}
-// Hide game-generated Twitch replies from the channel owner, never ordinary chat.
-// Familiars v7.7 formats each reply as "@viewer, <game response>".
-// A reply tag alone is NOT sufficient: ordinary Twitch replies must stay visible.
-const familiarReplyPrefixes=[
- '🐾','📜','🍓','⏳','🪙','🎒','✨','🛍','⚔','⚔️','🎵','👑','🛡','🎭','💰'
-];
-const familiarReplyText=/^(?:Уровень:|Квест выполнен!|Следующий квест через|Фамильяр (?:ещё сыт|покормлен)|Недостаточно золота|Ранее приобретённые:|Аксессуар снят\.|Повторно надет предмет|Куплен и надет предмет|Королевство фамильяров|Массовый танец:|Массовая атака:|Нет активного рейда|Сейчас нет активного босса|Ультимативн|Команды:|Фамильяр не найден|Получатель не найден|Формат: !pay|Нельзя переводить золото|Перевод невозможен|уровень изменён)/iu;
+// Familiars commandReply() always sends: "@viewer, <response>".
+// Filter only messages from the channel account with that exact opening.
+// Other messages (including ordinary @mentions without a comma) stay visible.
 function isFamiliarReply(login,message){
  if(botName(login)!==channel)return false;
- const m=String(message||'').match(/^@[a-z0-9_]{1,25},\s*(.+)$/iu);
- if(!m)return false;
- const body=m[1].trim();
- if(familiarReplyPrefixes.some(prefix=>body.startsWith(prefix)))return true;
- return familiarReplyText.test(body);
+ return /^\s*@[a-z0-9_]{1,25},\s*\S/iu.test(String(message||''));
 }
 const messageTimers=new WeakMap();
 function later(el,fn,ms){let timers=messageTimers.get(el);if(!timers){timers=new Set();messageTimers.set(el,timers)}const id=setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id)}
