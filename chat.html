@@ -28,7 +28,11 @@ const extraBots=new Set((q.get('bots')||'').split(/[\s,;]+/).map(botName).filter
 function isBot(name){const login=botName(name);return login!==channel&&(knownBots.has(login)||extraBots.has(login))}
 // Filter only automated replies sent by Live_El's familiars project.
 // Project commandReply() sends: @recipient, <game text> and IRC reply-parent-msg-id.
-const familiarCommands=new Set(['!elgame','!pet','!jump','!sleep','!heart','!dance','!танец','!quest','!attack','!ulta','!feed','!style','!stats','!pay','!boss','!босс','!danceall','!attackall','!setlevel','!addgold']);
+const familiarCommands = new Set([
+  '!elgame', '!pet', '!jump', '!sleep', '!спать', '!heart', '!dance', '!танец',
+  '!quest', '!квест', '!attack', '!атака', '!ulta', '!ульта', '!feed', '!покормить',
+  '!style', '!stats', '!pay', '!boss', '!босс', '!danceall', '!attackall', '!setlevel', '!addgold'
+]);
 const commandMessageIds=new Map();
 function rememberGameCommand(login,message,tags={}){
  const id=tags.id;if(!id)return;
@@ -147,7 +151,7 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
-</script><script id="live-el-auto-updater" data-project="chat" data-version="45fcb6974f431907">
+</script><script id="live-el-auto-updater" data-project="chat" data-version="77144593646c8a26">
 (() => {
   'use strict';
 
