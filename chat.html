@@ -131,7 +131,14 @@ function connect(){
   if(line.startsWith('PING')){ws.send(line.replace('PING','PONG'));continue}
   let tags={};if(line.startsWith('@')){const i=line.indexOf(' ');tags=tagsOf(line.slice(1,i));line=line.slice(i+1)}
   const m=line.match(/^:([^! ]+)!\S+ PRIVMSG #\S+ :(.*)$/);
-  if(m){rememberGameCommand(m[1],m[2],tags);if(!isBot(m[1])&&!isFamiliarCommandMessage(m[2])&&!isFamiliarReply(m[1],m[2],tags)){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}}
+  if(m){
+   // Shared Chat: messages forwarded from another channel must not enter this overlay.
+   // Twitch sets source-room-id to the originating room for shared-chat relays.
+   const fromOtherSharedRoom=Boolean(tags['source-room-id']&&tags['source-room-id']!==tags['room-id']);
+   if(fromOtherSharedRoom)continue;
+   rememberGameCommand(m[1],m[2],tags);
+   if(!isBot(m[1])&&!isFamiliarCommandMessage(m[2])&&!isFamiliarReply(m[1],m[2],tags)){noteMessage(tags);add(tags['display-name']||m[1],m[2],tags)}
+  }
   if(line.includes(' CLEARMSG '))for(const el of [...chat.children])if(el.dataset.id===tags['target-msg-id'])removeMessage(el);
   if(line.includes(' CLEARCHAT ')){if(tags['target-user-id']){for(const el of [...chat.children])if(el.dataset.user===tags['target-user-id'])removeMessage(el)}else for(const el of [...chat.children])removeMessage(el)}
   if(line.includes(' RECONNECT '))ws.close();
