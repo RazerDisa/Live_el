@@ -29,6 +29,8 @@ function isBot(name){const login=botName(name);return login!==channel&&(knownBot
 // Filter only automated replies sent by Live_El's familiars project.
 // Project commandReply() sends: @recipient, <game text> and IRC reply-parent-msg-id.
 const familiarCommands = new Set([
+  '!справка', '!питомец', '!прыжок', '!сердце', '!стиль', '!статистика', '!перевести',
+  '!общийтанец', '!общаяатака', '!задатьуровень', '!выдатьзолото',
   '!elgame', '!pet', '!jump', '!sleep', '!спать', '!heart', '!dance', '!танец',
   '!quest', '!квест',
   '!attack', '!атака', '!ulta', '!ульта', '!feed', '!покормить',
@@ -52,7 +54,7 @@ function rememberGameCommand(login,message,tags={}){
  const now=Date.now();
  if(commandMessageIds.size>500)for(const [key,time] of commandMessageIds)if(now-time>600000||commandMessageIds.size>400)commandMessageIds.delete(key);
 }
-const gameText=/^(?:🐾|🎭|💰|👑|⚔|🛡|🪙|⛔|✨|❤️|❌|✅|🎁|🌟|📊|📜|🎯|💤|💖|🦄|🔥|💎|🌸|🪽|🧚|🧚‍♀️|🏆|🧡|🌙|⭐|✦|\+\d+\s*(?:xp|золота)|королевство\s+фамильяров|команды:|формат:\s*!|недостаточно\s+золота|передано\s+\d+\s+золота|сейчас\s+нет\s+активного\s+босса|ультимативную\s+способность)/iu;
+const gameText=/^(?:🐾|🎭|🎒|🛍|🎵|💰|👑|⚔|🛡|🪙|⛔|✨|❤️|❌|✅|🎁|🌟|📊|📜|🎯|💤|💖|🦄|🔥|💎|🌸|🪽|🧚|🧚‍♀️|🏆|🧡|🌙|⭐|✦|\+\d+\s*(?:xp|золота)|королевство\s+фамильяров|команды:|формат:\s*!|недостаточно\s+золота|передано\s+\d+\s+золота|сейчас\s+нет\s+активного\s+босса|ультимативную\s+способность)/iu;
 const gameTerms=/(?:королевство\s+фамильяров|\b!elgame\b|\b!pay\b|\b!stats\b|\b!quest\b|\b!feed\b|\b!pet\b|\b!style\b|\b!boss\b|\b!attack\b|\b!ulta\b|фамильяр|питомц|золота|золото|прокачк|уровень|босс|рейд|ультимативн|кормлен|награды|аксессуар|танец|танцы|прыжок|инвентарь|опыт|\bXP\b)/iu;
 // Hide viewer messages that invoke a familiars command, not normal chat mentioning it.
 function isFamiliarCommandMessage(message){
@@ -60,6 +62,8 @@ function isFamiliarCommandMessage(message){
  const command=body.split(/\s+/,1)[0].toLowerCase();
  return familiarCommands.has(command) || shortQuestCommands.has(body.toLowerCase());
 }
+// Shop notices can arrive without the parent message or the bot login on this source.
+const shopNotice=/^(?:🛍 Куплен и надет предмет «|✨ (?:Повторно надет предмет «|Аксессуар снят\.$)|🎒 Ранее приобретённые украшения —|👑 (?:!стиль фонарик или !style lantern|Такого украшения нет\.)|🪙 Для «[^»]+» нужно \d+ золота\.)/u;
 function isFamiliarReply(login,message,tags={}){
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
  const mention=body.match(/^@([a-z0-9_]{1,25})\s*[,，:]\s*/iu);
@@ -67,7 +71,8 @@ function isFamiliarReply(login,message,tags={}){
  const sender=botName(login);
  const fromGameBot=sender===channel || sender==='live_el' || sender===familiarBotLogin;
  // A separately hosted chat overlay may not share the game bot's saved login.
- if(mention && (fromGameBot || !familiarBotLogin) && content.startsWith('📜 Квест · '))return true;
+ if(mention && (fromGameBot || !familiarBotLogin) &&
+    (content.startsWith('📜 Квест · ') || shopNotice.test(content)))return true;
  if(!fromGameBot)return false;
  // Highest-confidence check: Twitch reply metadata points to a known game command.
  const parent=tags['reply-parent-msg-id'];
@@ -166,7 +171,7 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
-</script><script id="live-el-auto-updater" data-project="chat" data-version="95ff365b6923d268">
+</script><script id="live-el-auto-updater" data-project="chat" data-version="864913ff77d4476d">
 (() => {
   'use strict';
 
