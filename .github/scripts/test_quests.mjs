@@ -26,7 +26,7 @@ for (const [i, r] of game.ranks.entries()) {
   assert.equal(r.high, highest[i]);
   assert.equal(r.seconds, durations[i]);
   assert.equal(r.penalty, fees[i]);
-  assert.equal(game.chanceFor(r.level,r), 70);
+  assert.equal(game.chanceFor(r.level,r), [80,77,70,70,70,70,70,70,70][i]);
   assert.ok(game.chanceFor(100,r) <= 95 && game.chanceFor(1,r) >= 5);
 }
 assert.equal(game.chanceFor(35,game.ranks[4]), 60);
@@ -36,7 +36,7 @@ assert.equal(game.chanceFor(100,game.ranks[8]), 80);
 for (const lv of [1,35,50,100]) {
   let total = 0;
   for (const r of game.ranks) {
-    const weight = r.low + (r.high-r.low)*(lv-1)/99;
+    const weight = game.rankWeight(lv, r);
     const seen = new Set();
     let last;
     const d = player();
@@ -54,6 +54,74 @@ for (const lv of [1,35,50,100]) {
     total+=weight;
   }
   assert.ok(Math.abs(total-100)<1e-9);
+}
+
+// Compare all 100 levels to the pre-beginner balance. XP per minute includes the
+// automatic journey and its rest, assuming immediate acceptance and enough gold.
+const baseWeight = (lv, r) => r.low + (r.high - r.low) * (lv - 1) / 99;
+const baseChance = (lv, r) => Math.max(5, Math.min(95, 70 + 2 * (lv - r.level)));
+const near = (x, y) => assert.ok(Math.abs(x - y) < 1e-9, x + ' != ' + y);
+function expectedRate(lv, weight, chance) {
+  let xp = 0, seconds = 0;
+  for (const rank of game.ranks) {
+    const share = weight(lv, rank) / 100;
+    const averageXp = rank.quests.reduce((sum, q) => sum + q.xp, 0) / rank.quests.length;
+    xp += share * (chance(lv, rank) / 100) * averageXp;
+    seconds += share * rank.seconds * 1.5;
+  }
+  return xp * 60 / seconds;
+}
+const [g, f] = game.ranks;
+near(game.rankWeight(1, g) + game.rankWeight(1, f), 65.6);
+assert.equal(game.chanceFor(1, g), 80);
+assert.equal(game.chanceFor(1, f), 66);
+for (let lv = 1; lv <= 100; lv++) {
+  let total = 0;
+  for (const rank of game.ranks) {
+    const weight = game.rankWeight(lv, rank), chance = game.chanceFor(lv, rank);
+    assert.ok(weight > 0 && chance >= 5 && chance <= 95);
+    total += weight;
+    if (lv <= 20 && (rank === g || rank === f)) {
+      assert.ok(weight > baseWeight(lv, rank));
+      assert.equal(chance, Math.min(95, baseChance(lv, rank) + Math.ceil((21 - lv) / 2)));
+    } else {
+      assert.equal(chance, baseChance(lv, rank));
+    }
+    if (lv >= 21) near(weight, baseWeight(lv, rank));
+  }
+  near(total, 100);
+  const improvement = expectedRate(lv, game.rankWeight, game.chanceFor) / expectedRate(lv, baseWeight, baseChance);
+  if (lv <= 20) assert.ok(improvement > 1 && improvement < 1.22, 'XP rate at level ' + lv);
+  else near(improvement, 1);
+}
+
+// Exercise the actual offer draw across evenly spaced random values; this detects
+// changes to the selection code even if the weight function itself is correct.
+for (const lv of [1, 10, 20, 21, 100]) {
+  const counts = new Map(game.ranks.map(rank => [rank.code, 0]));
+  const draws = 10000;
+  for (let i = 0; i < draws; i++) {
+    const d = player();
+    game.command(d, '', lv, start, '', () => (i + 0.5) / draws);
+    const code = game.catalogue.get(d.questBook.current.id).rank.code;
+    counts.set(code, counts.get(code) + 1);
+  }
+  for (const rank of game.ranks) {
+    assert.ok(Math.abs(counts.get(rank.code) - draws * game.rankWeight(lv, rank) / 100) <= 1.000001);
+  }
+}
+
+// Save files carry the original offer terms through an update. New odds only
+// apply to newly drawn offers, including when the familiar gains a level.
+for (const oldOffer of [true, false]) {
+  const d = player();
+  request(d, '', start);
+  if (oldOffer) d.questBook.current.chance = 70;
+  const saved = reload(d);
+  assert.ok(game.offerText(saved.questBook.current).includes(oldOffer ? '70%' : '80%'));
+  deliver(saved, start);
+  request(saved, 'accept', start + 1, 0.75);
+  assert.equal(saved.questBook.current.won, !oldOffer);
 }
 
 // Offers that wait in the Twitch queue retain the full acceptance window.
@@ -107,12 +175,12 @@ assert.equal(request(legacy,'',start+119999).changed,false);
 assert.equal(request(legacy,'',start+120000).changed,true);
 console.log('45 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
 
-// Only a complete decision argument after a quest command may change an offer.
+// Existing two-word commands keep working; extra words cannot authorize a decision.
 for (const argument of ['принять', 'accept', 'отклонить', 'decline']) {
   const d = player();
   request(d, '', start);
   const offer = d.questBook.current;
-  assert.match(game.offerText(offer), /!квест принять \/ !квест отклонить/);
+  assert.ok(game.offerText(offer).includes('!беру/!qtake — принять, !пас/!qskip — отклонить'));
   deliver(d, start);
   for (const typo of ['!принять', '!отклонить', '!accept', '!decline', 'принять подарок', 'accept now']) {
     const saved = JSON.stringify(d);
@@ -128,9 +196,28 @@ for (const argument of ['принять', 'accept', 'отклонить', 'decli
     assert.equal(d.gold, 1000);
   }
 }
-for (const example of ['!квест принять','!квест отклонить','!quest accept','!quest decline']) {
+for (const example of ['!беру','!пас','!qtake','!qskip','1–20','G и F']) {
   assert.ok(game.help.includes(example));
 }
+
+// Test each real Twitch shortcut from routing through the economic transition.
+for (const [cmd, action] of [['!беру','accept'],['!qtake','accept'],['!пас','decline'],['!qskip','decline']]) {
+  const argument = game.argumentFor([cmd]);
+  assert.equal(argument, action);
+  assert.equal(game.argumentFor([cmd,'лишнее']), undefined);
+  const d = player();
+  request(d, game.argumentFor(['!квест']), start);
+  deliver(d, start);
+  const fee = d.questBook.current.fee;
+  assert.equal(request(d, argument, start + 1).changed, true);
+  assert.equal(d.gold, action === 'accept' ? 1000 - fee : 1000);
+  assert.equal(d.questBook.current?.phase, action === 'accept' ? 'active' : undefined);
+}
+for (const cmd of ['!принять','!отклонить','!accept','!decline','!паста','пас']) {
+  assert.equal(game.argumentFor([cmd]), undefined);
+}
+assert.equal(game.argumentFor(['!квест','принять']), 'принять');
+assert.equal(game.argumentFor(['!quest','decline']), 'decline');
 
 // Use the overlay's own command table and reply classifier for regression checks.
 const chat = readFileSync('chat.html', 'utf8');
@@ -142,7 +229,7 @@ const filter = runInNewContext(chat.slice(startFilter, endFilter) +
     channel: 'live_el', botName: value => String(value || '').trim().toLowerCase().replace(/^@/, ''),
     localStorage: { getItem: () => '{"login":"quest_bot"}' }, window: { addEventListener() {} }
   });
-for (const cmd of ['!quest','!квест','!quest accept','!квест принять','!quest decline','!квест отклонить','!elgame quest','!elgame квест']) {
+for (const cmd of ['!беру','!пас','!qtake','!qskip','!quest','!квест','!quest accept','!квест принять','!quest decline','!квест отклонить','!elgame quest','!elgame квест']) {
   const input = '\u200b' + cmd.toUpperCase();
   assert.equal(filter.isFamiliarCommandMessage(input), true);
   filter.rememberGameCommand('viewer', input, { id: cmd });
@@ -155,7 +242,7 @@ for (const message of ['!принять','!отклонить','!accept','!decli
   assert.equal(filter.isFamiliarReply('quest_bot', 'ответ', {'reply-parent-msg-id':message}), false);
   assert.equal(filter.isFamiliarReply('trade_bot', 'обмен завершён', {'reply-parent-msg-id':message}), false);
 }
-for (const message of ['Как принять квест?', 'Я написал !квест принять', '!квестовый', '!принятьподарок']) {
+for (const message of ['Как принять квест?', 'Я написал !беру', '!беру кота', '!пас на сегодня', '!qskip today', '!берусь', '!паста', '!квестовый', '!принятьподарок']) {
   assert.equal(filter.isFamiliarCommandMessage(message), false);
 }
 assert.equal(filter.isFamiliarReply('quest_bot', '@viewer, 📜 Квест · Фамильяр ещё отдыхает.'), true);
