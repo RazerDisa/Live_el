@@ -13,7 +13,7 @@ const deliver = (d, t) => {
   while (d.questBook.notes.length) game.delivered(d, d.questBook.notes[0], t);
 };
 const reload = d => JSON.parse(JSON.stringify(d));
-const request = (d, cmd, t, roll = 0, id = '') => game.command(d, cmd, 1, t, id, () => roll);
+const request = (d, argument, t, roll = 0, id = '') => game.command(d, argument, 1, t, id, () => roll);
 const weights = [32,25,18,12,7,4,1.3,0.6,0.1];
 const highest = [3,4,6,8,12,19,23,17,8];
 const durations = [30,40,50,60,90,120,150,180,240];
@@ -42,14 +42,14 @@ for (const lv of [1,35,50,100]) {
     const d = player();
     for (let i=0; i<6; i++) {
       const t=start+i*120001, rolls=[(total+weight/2)/100,0.4];
-      game.command(d,'!quest',lv,t,'',()=>rolls.shift());
+      game.command(d,'',lv,t,'',()=>rolls.shift());
       const s=d.questBook.current;
       assert.equal(game.catalogue.get(s.id).rank.code,r.code);
       assert.equal(s.fee,Math.ceil(s.gold*r.penalty/100));
       if (i<5) { assert.ok(!seen.has(s.id)); seen.add(s.id); }
       else assert.notEqual(s.id,last);
       last=s.id;
-      deliver(d,t); request(d,'!decline',t+1); deliver(d,t+1);
+      deliver(d,t); request(d,'decline',t+1); deliver(d,t+1);
     }
     total+=weight;
   }
@@ -58,29 +58,29 @@ for (const lv of [1,35,50,100]) {
 
 // Offers that wait in the Twitch queue retain the full acceptance window.
 let d=player();
-request(d,'!quest',start);
+request(d,'',start);
 assert.equal(game.advance(d,start+60000),false);
 deliver(d,start+60000);
 assert.equal(d.questBook.current.due,start+90000);
-assert.equal(request(d,'!quest',start+70000).changed,false);
+assert.equal(request(d,'',start+70000).changed,false);
 assert.equal(game.advance(d,start+89999),false);
 assert.equal(game.advance(d,start+90000),true);
 assert.equal(game.advance(d,start+90001),false);
 assert.equal(d.questBook.notes.length,1);
 assert.equal(d.gold,1000);
 assert.equal(d.questBook.rest,0);
-assert.equal(request(d,'!quest',start+91000).changed,false);
+assert.equal(request(d,'',start+91000).changed,false);
 
 for (const won of [true,false]) {
   let d=player();
-  request(d,'!quest',start); deliver(d,start);
+  request(d,'',start); deliver(d,start);
   const s=d.questBook.current;
   const accepted=start+1000, finish=accepted+s.duration, rested=finish+s.duration/2;
-  request(d,'!accept',accepted,won ? 0 : 0.999,'decision');
+  request(d,'accept',accepted,won ? 0 : 0.999,'decision');
   assert.equal(d.gold,1000-s.fee);
-  assert.equal(request(d,'!accept',accepted+1,0,'decision').changed,false);
-  assert.equal(request(d,'!quest',accepted+2).changed,false);
-  assert.equal(request(d,'!decline',accepted+3).changed,false);
+  assert.equal(request(d,'accept',accepted+1,0,'decision').changed,false);
+  assert.equal(request(d,'',accepted+2).changed,false);
+  assert.equal(request(d,'decline',accepted+3).changed,false);
   deliver(d,accepted); d=reload(d);
   assert.equal(game.validBook(d.questBook),true);
   d.gold-=7; // unrelated spend while travelling
@@ -92,20 +92,45 @@ for (const won of [true,false]) {
   d=reload(d);
   assert.equal(game.advance(d,finish+1),false);
   assert.equal(d.questBook.notes.length,1);
-  assert.equal(request(d,'!quest',rested-1).changed,false);
-  assert.equal(request(d,'!quest',rested).changed,true);
+  assert.equal(request(d,'',rested-1).changed,false);
+  assert.equal(request(d,'',rested).changed,true);
 }
-d=player();d.gold=0;request(d,'!quest',start);deliver(d,start);
-assert.equal(request(d,'!accept',start+1).changed,false);
-request(d,'!decline',start+2);
+d=player();d.gold=0;request(d,'',start);deliver(d,start);
+assert.equal(request(d,'accept',start+1).changed,false);
+request(d,'decline',start+2);
 assert.equal(d.gold,0);
 assert.equal(d.questBook.notes.length,1);
 assert.match(d.questBook.notes[0].text,/отменён/);
 assert.equal(d.questBook.rest,0);
 const legacy={gold:30,xp:25,quest:start};
-assert.equal(request(legacy,'!quest',start+119999).changed,false);
-assert.equal(request(legacy,'!quest',start+120000).changed,true);
+assert.equal(request(legacy,'',start+119999).changed,false);
+assert.equal(request(legacy,'',start+120000).changed,true);
 console.log('45 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
+
+// Only a complete decision argument after a quest command may change an offer.
+for (const argument of ['принять', 'accept', 'отклонить', 'decline']) {
+  const d = player();
+  request(d, '', start);
+  const offer = d.questBook.current;
+  assert.match(game.offerText(offer), /!квест принять \/ !квест отклонить/);
+  deliver(d, start);
+  for (const typo of ['!принять', '!отклонить', '!accept', '!decline', 'принять подарок', 'accept now']) {
+    const saved = JSON.stringify(d);
+    assert.equal(request(d, typo, start + 1).changed, false);
+    assert.equal(JSON.stringify(d), saved);
+  }
+  assert.equal(request(d, argument, start + 2).changed, true);
+  if (argument === 'принять' || argument === 'accept') {
+    assert.equal(d.questBook.current.phase, 'active');
+    assert.equal(d.gold, 1000 - offer.fee);
+  } else {
+    assert.equal(d.questBook.current, null);
+    assert.equal(d.gold, 1000);
+  }
+}
+for (const example of ['!квест принять','!квест отклонить','!quest accept','!quest decline']) {
+  assert.ok(game.help.includes(example));
+}
 
 // Use the overlay's own command table and reply classifier for regression checks.
 const chat = readFileSync('chat.html', 'utf8');
@@ -117,14 +142,20 @@ const filter = runInNewContext(chat.slice(startFilter, endFilter) +
     channel: 'live_el', botName: value => String(value || '').trim().toLowerCase().replace(/^@/, ''),
     localStorage: { getItem: () => '{"login":"quest_bot"}' }, window: { addEventListener() {} }
   });
-for (const cmd of ['!quest','!квест','!accept','!принять','!decline','!отклонить','!elgame quest','!elgame квест']) {
+for (const cmd of ['!quest','!квест','!quest accept','!квест принять','!quest decline','!квест отклонить','!elgame quest','!elgame квест']) {
   const input = '\u200b' + cmd.toUpperCase();
   assert.equal(filter.isFamiliarCommandMessage(input), true);
   filter.rememberGameCommand('viewer', input, { id: cmd });
   assert.equal(filter.isFamiliarReply('quest_bot','ответ',{'reply-parent-msg-id':cmd}), true);
   assert.equal(filter.isFamiliarReply('another_viewer','привет',{'reply-parent-msg-id':cmd}), false);
 }
-for (const message of ['Как принять квест?', 'Я написал !квест', '!квестовый', '!принятьподарок']) {
+for (const message of ['!принять','!отклонить','!accept','!decline','!ПРИНЯТЬ @bot','!accept trade']) {
+  assert.equal(filter.isFamiliarCommandMessage(message), false);
+  filter.rememberGameCommand('viewer', message, { id: message });
+  assert.equal(filter.isFamiliarReply('quest_bot', 'ответ', {'reply-parent-msg-id':message}), false);
+  assert.equal(filter.isFamiliarReply('trade_bot', 'обмен завершён', {'reply-parent-msg-id':message}), false);
+}
+for (const message of ['Как принять квест?', 'Я написал !квест принять', '!квестовый', '!принятьподарок']) {
   assert.equal(filter.isFamiliarCommandMessage(message), false);
 }
 assert.equal(filter.isFamiliarReply('quest_bot', '@viewer, 📜 Квест · Фамильяр ещё отдыхает.'), true);
