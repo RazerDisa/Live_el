@@ -1,5 +1,4 @@
-name: Prepare and verify ranked familiar quests
-
+name: Verify scoped quest commands
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -13,21 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Assemble and verify quest release
+      - name: Assemble and verify the quest command update
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/ranked-quest-prep/apply.py
+          python3 .github/prepare-quest-commands.py
           node .github/scripts/test_quests.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object chat.html)" = 66ac996ec5b65670c3cb1c426d9cef0f534ef818
-          test "$(git hash-object familiars.html)" = cbbbda9f6d817dae69e712a6bf2b627774adb954
-          test "$(git hash-object version.json)" = 655846ee57fa4b29b9954c2e2e45186657bc7104
-          test "$(git hash-object .github/scripts/test_quests.mjs)" = 6b6cdf721f07c0c2b8b13eeee3c2f11ce91dca95
-          test "$(git hash-object .github/workflows/update-version.yml)" = f828ce994e67e388414c71dcfc4a822c6b27bbe2
+          test "$(git hash-object .github/scripts/test_quests.mjs)" = 4ab2d6524e996664482898573db69520859e68b0
+          test "$(git hash-object chat.html)" = 29890d8df9f4d68aa2f1079e2845ca02901ef97c
+          test "$(git hash-object familiars.html)" = 5e7c001620546ebbe21aa4dd07779e2c92d7ef80
+          test "$(git hash-object version.json)" = 5d611e581e81dcfb1ab7a283076c83edab8f4f77
           git add -- chat.html familiars.html version.json .github/scripts/test_quests.mjs
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble and verify ranked familiar quests'
+          git commit -m 'Assemble and verify scoped quest commands'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
