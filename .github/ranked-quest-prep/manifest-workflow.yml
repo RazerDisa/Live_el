@@ -1,0 +1,61 @@
+name: Update overlay version manifest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - chat.html
+      - familiars.html
+      - version.json
+      - .github/scripts/update_versions.py
+      - .github/scripts/test_quests.mjs
+      - .github/workflows/update-version.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: overlay-versions-main
+  cancel-in-progress: false
+
+jobs:
+  update-manifest:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Validate JavaScript and publish matching revisions
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            if (( attempt > 1 )); then
+              git fetch --depth=1 origin main
+              git switch --detach FETCH_HEAD
+            fi
+            node .github/scripts/test_quests.mjs
+            python3 .github/scripts/update_versions.py
+            git add -- chat.html familiars.html version.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'Refresh OBS overlay versions'
+            if git push origin HEAD:refs/heads/main; then
+              echo 'changed=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          exit 1
+
+      # A GITHUB_TOKEN push does not start a branch-based Pages build by itself.
+      - name: Request Pages build for the updated manifest
+        if: steps.versions.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.run_attempt != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent

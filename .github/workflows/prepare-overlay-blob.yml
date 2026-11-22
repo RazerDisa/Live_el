@@ -1,4 +1,4 @@
-name: Prepare verified Russian command aliases
+name: Prepare and verify ranked familiar quests
 
 on:
   push:
@@ -13,69 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Apply aliases and verify release bytes
+      - name: Assemble and verify quest release
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PYTHON'
-          from pathlib import Path
-
-
-          def replace_once(source, old, new):
-              if source.count(old) != 1:
-                  raise RuntimeError(f"Expected one occurrence of {old[:80]!r}")
-              return source.replace(old, new, 1)
-
-
-          familiars_path = Path("familiars.html")
-          source = familiars_path.read_text(encoding="utf-8")
-          replacements = [
-              ("const knownCommands=new Set(", """const commandAliases = new Map([
-            ['!атака', '!attack'],
-            ['!ульта', '!ulta'],
-            ['!квест', '!quest'],
-            ['!покормить', '!feed'],
-            ['!спать', '!sleep'],
-            ['!танец', '!dance'],
-            ['!босс', '!boss']
-          ]);
-          const knownCommands=new Set("""),
-              ("if(cmd==='!attack'||cmd==='!ulta')syncRaid();",
-               "\ncmd = commandAliases.get(cmd) ?? cmd;\nif(cmd==='!attack'||cmd==='!ulta')syncRaid();"),
-              ("if(cmd==='!танец')cmd='!dance';if(cmd==='!босс')cmd='!boss';", ""),
-              ("case '!boss':case '!босс':", "case '!boss':"),
-              ("case '!dance':case '!танец':", "case '!dance':"),
-              ("⚔ Теневой дракон · !attack / !ulta", "⚔ Теневой дракон · !attack / !атака · !ulta / !ульта"),
-              ("!jump · !sleep · !heart · !dance / !танец · !quest · !attack · !ulta · !feed · !style",
-               "!jump · !sleep / !спать · !heart · !dance / !танец · !quest / !квест · !attack / !атака · !ulta / !ульта · !feed / !покормить · !style"),
-              ("!sleep — сон 12 сек.", "!sleep / !спать — сон 12 сек."),
-              ("💰 !stats — своя статистика; !stats @ник — статистика зрителя; !quest — 25 XP и 12 золота раз в 2 мин.; !feed — 10 XP за 5 золота раз в 30 сек. Чат: 5 XP и 1 золото раз в минуту. !pay @ник сумма — перевод золота без комиссии; сумма — целое положительное число, получатель должен ранее написать в чат.",
-               "💰 !stats — о себе, !stats @ник — о зрителе. !quest / !квест — 25 XP и 12 золота раз в 2 мин. !feed / !покормить — 10 XP за 5 золота раз в 30 с. За чат — 5 XP и 1 золото в минуту. !pay @ник сумма — перевод без комиссии тому, кто писал в чат. Сумма целая, от 1."),
-              ("⚔ !attack — атака раз в 5 сек., урон 6 + уровень (7 на первом, +1 за уровень). !ulta — урон ×10, КД 20 сек. Макс. уровень 100. HP босса = 70 × сумма урона активных фамильяров на экране. Пересчитывается при изменении состава. 300 сек. (5 минут). Победа: 60 XP и 35 золота участникам.",
-               "⚔ !attack / !атака — урон 6 + уровень, раз в 5 с. !ulta / !ульта — урон ×10, раз в 20 с. Максимум 100 уровней. HP босса = 70 × сумма урона активных фамильяров на экране и меняется с их составом. Рейд длится 5 минут. За победу участникам по 60 XP и 35 золота."),
-          ]
-          for old, new in replacements:
-              source = replace_once(source, old, new)
-          familiars_path.write_text(source, encoding="utf-8")
-
-          chat_path = Path("chat.html")
-          source = chat_path.read_text(encoding="utf-8")
-          source = replace_once(source,
-              "const familiarCommands=new Set(['!elgame','!pet','!jump','!sleep','!heart','!dance','!танец','!quest','!attack','!ulta','!feed','!style','!stats','!pay','!boss','!босс','!danceall','!attackall','!setlevel','!addgold']);",
-              """const familiarCommands = new Set([
-            '!elgame', '!pet', '!jump', '!sleep', '!спать', '!heart', '!dance', '!танец',
-            '!quest', '!квест', '!attack', '!атака', '!ulta', '!ульта', '!feed', '!покормить',
-            '!style', '!stats', '!pay', '!boss', '!босс', '!danceall', '!attackall', '!setlevel', '!addgold'
-          ]);""")
-          chat_path.write_text(source, encoding="utf-8")
-          PYTHON
+          python3 .github/ranked-quest-prep/apply.py
+          node .github/scripts/test_quests.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object chat.html)" = 'a942dec52f174bc1addd8042f72a30d923e5553f'
-          test "$(git hash-object familiars.html)" = '5b03b98d0ca857a194cfff18023b54a54058937c'
-          test "$(git hash-object version.json)" = 'ad8a2d469a2fdb5dba81641ee6df0ab004387210'
-          git add -- chat.html familiars.html version.json
+          test "$(git hash-object chat.html)" = 66ac996ec5b65670c3cb1c426d9cef0f534ef818
+          test "$(git hash-object familiars.html)" = cbbbda9f6d817dae69e712a6bf2b627774adb954
+          test "$(git hash-object version.json)" = 655846ee57fa4b29b9954c2e2e45186657bc7104
+          test "$(git hash-object .github/scripts/test_quests.mjs)" = 6b6cdf721f07c0c2b8b13eeee3c2f11ce91dca95
+          test "$(git hash-object .github/workflows/update-version.yml)" = f828ce994e67e388414c71dcfc4a822c6b27bbe2
+          git add -- chat.html familiars.html version.json .github/scripts/test_quests.mjs
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Prepare verified bilingual familiar commands'
-          git push origin "HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f"
+          git commit -m 'Assemble and verify ranked familiar quests'
+          git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
