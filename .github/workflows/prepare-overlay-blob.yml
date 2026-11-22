@@ -1,4 +1,4 @@
-name: Verify quick quest commands and beginner balance
+name: Verify Russian familiar commands and purchases
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -12,20 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Assemble and verify game and chat overlays
+      - name: Assemble the tested overlays and verify every release file
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/quest-start-prep/apply.py
+          python3 .github/familiar-locale-prep/apply.py
+          node .github/scripts/test_familiar_commands.mjs
           node .github/scripts/test_quests.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_quests.mjs)" = 9865716ce7af1007cc5c4fc61ca70612184c3f16
-          test "$(git hash-object chat.html)" = 77188445abf8abb0690e8676a23b6206de209ea3
-          test "$(git hash-object familiars.html)" = 6b55f3971daf5585bbc46cb168ae3a8e6765fc22
-          test "$(git hash-object version.json)" = c7456560514fd7a0934cf6b6a0be7136ea076c42
-          git add -- familiars.html chat.html version.json .github/scripts/test_quests.mjs
+          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = 1e264d1166937cc5def02713491628ebc8b1276a
+          test "$(git hash-object .github/workflows/update-version.yml)" = c155d1ec840e6495b3057763bf5780ba8824646a
+          test "$(git hash-object chat.html)" = 51a541ae6668e182f0abe81e480928135a7ea456
+          test "$(git hash-object familiars.html)" = 5990f50510322b3f9ffa69c2fe327d2d8f58aa6c
+          test "$(git hash-object version.json)" = 99766d1aa3de586c1e3b42a64befe5498d895081
+          git add -- chat.html familiars.html version.json .github/scripts/test_familiar_commands.mjs
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble quick quest commands and beginner balance'
+          git commit -m 'Assemble Russian familiar commands and shop'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
