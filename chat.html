@@ -30,11 +30,12 @@ function isBot(name){const login=botName(name);return login!==channel&&(knownBot
 // Project commandReply() sends: @recipient, <game text> and IRC reply-parent-msg-id.
 const familiarCommands = new Set([
   '!elgame', '!pet', '!jump', '!sleep', '!спать', '!heart', '!dance', '!танец',
-  // Quest decisions use an argument after !quest or !квест.
   '!quest', '!квест',
   '!attack', '!атака', '!ulta', '!ульта', '!feed', '!покормить',
   '!style', '!stats', '!pay', '!boss', '!босс', '!danceall', '!attackall', '!setlevel', '!addgold'
 ]);
+// Only standalone shortcuts are decisions. A longer phrase can be ordinary chat.
+const shortQuestCommands = new Set(['!беру', '!qtake', '!пас', '!qskip']);
 const familiarAuthKey = 'dance-stream-preview-v1:' + channel + ':auth';
 function readFamiliarBotLogin() {
   try { return botName(JSON.parse(localStorage.getItem(familiarAuthKey) || '{}').login); }
@@ -57,7 +58,7 @@ const gameTerms=/(?:королевство\s+фамильяров|\b!elgame\b|\b
 function isFamiliarCommandMessage(message){
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
  const command=body.split(/\s+/,1)[0].toLowerCase();
- return familiarCommands.has(command);
+ return familiarCommands.has(command) || shortQuestCommands.has(body.toLowerCase());
 }
 function isFamiliarReply(login,message,tags={}){
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
@@ -165,7 +166,7 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
-</script><script id="live-el-auto-updater" data-project="chat" data-version="72bea98f8256f617">
+</script><script id="live-el-auto-updater" data-project="chat" data-version="95ff365b6923d268">
 (() => {
   'use strict';
 
