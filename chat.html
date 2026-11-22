@@ -54,7 +54,7 @@ function rememberGameCommand(login,message,tags={}){
  const now=Date.now();
  if(commandMessageIds.size>500)for(const [key,time] of commandMessageIds)if(now-time>600000||commandMessageIds.size>400)commandMessageIds.delete(key);
 }
-const gameText=/^(?:🐾|🎭|🎒|🛍|🎵|💰|👑|⚔|🛡|🪙|⛔|✨|❤️|❌|✅|🎁|🌟|📊|📜|🎯|💤|💖|🦄|🔥|💎|🌸|🪽|🧚|🧚‍♀️|🏆|🧡|🌙|⭐|✦|\+\d+\s*(?:xp|золота)|королевство\s+фамильяров|команды:|формат:\s*!|недостаточно\s+золота|передано\s+\d+\s+золота|сейчас\s+нет\s+активного\s+босса|ультимативную\s+способность)/iu;
+const gameText=/^(?:🐾|🎭|🎒|🛍|🎵|💰|👑|⚔|🛡|🪙|⛔|✨|❤️|❌|✅|🎁|🌟|📊|📜|🎯|💤|💖|🦄|🔥|💎|🌸|🪽|🧚|🧚‍♀️|🏆|🧡|🌙|⭐|✦|\+\d+\s*(?:xp|золот[оа])|королевство\s+фамильяров|команды:|формат:\s*!|недостаточно\s+золота|передано\s+\d+\s+золот[оа]|сейчас\s+нет\s+активного\s+босса|ультимативную\s+способность)/iu;
 const gameTerms=/(?:королевство\s+фамильяров|\b!elgame\b|\b!pay\b|\b!stats\b|\b!quest\b|\b!feed\b|\b!pet\b|\b!style\b|\b!boss\b|\b!attack\b|\b!ulta\b|фамильяр|питомц|золота|золото|прокачк|уровень|босс|рейд|ультимативн|кормлен|награды|аксессуар|танец|танцы|прыжок|инвентарь|опыт|\bXP\b)/iu;
 // Hide viewer messages that invoke a familiars command, not normal chat mentioning it.
 function isFamiliarCommandMessage(message){
@@ -63,7 +63,7 @@ function isFamiliarCommandMessage(message){
  return familiarCommands.has(command) || shortQuestCommands.has(body.toLowerCase());
 }
 // Shop notices can arrive without the parent message or the bot login on this source.
-const shopNotice=/^(?:🛍 Куплен и надет предмет «|✨ (?:Повторно надет предмет «|Аксессуар снят\.$)|🎒 Ранее приобретённые украшения —|👑 (?:!стиль фонарик или !style lantern|Такого украшения нет\.)|🪙 Для «[^»]+» нужно \d+ золота\.)/u;
+const shopNotice=/^(?:🛍 Куплен и надет предмет «|✨ (?:Повторно надет предмет «|Аксессуар снят\.$)|🎒 Ранее приобретённые украшения —|👑 (?:!стиль фонарик или !style lantern|Такого украшения нет\.)|🪙 Для «[^»]+» нужно \d+ золот[оа]\.)/u;
 function isFamiliarReply(login,message,tags={}){
  const body=String(message||'').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').trim();
  const mention=body.match(/^@([a-z0-9_]{1,25})\s*[,，:]\s*/iu);
@@ -171,7 +171,7 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
-</script><script id="live-el-auto-updater" data-project="chat" data-version="864913ff77d4476d">
+</script><script id="live-el-auto-updater" data-project="chat" data-version="46463c9467d285f8">
 (() => {
   'use strict';
 
