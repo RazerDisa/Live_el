@@ -1,4 +1,5 @@
-name: Verify Russian familiar commands and purchases
+name: Verify familiar message forms
+
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -12,22 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Assemble the tested overlays and verify every release file
+      - name: Verify message forms and resulting overlay files
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/familiar-locale-prep/apply.py
-          node .github/scripts/test_familiar_commands.mjs
+          python3 .github/gold-wording-prep/apply.py
           node .github/scripts/test_quests.mjs
+          node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = 1e264d1166937cc5def02713491628ebc8b1276a
-          test "$(git hash-object .github/workflows/update-version.yml)" = c155d1ec840e6495b3057763bf5780ba8824646a
-          test "$(git hash-object chat.html)" = 51a541ae6668e182f0abe81e480928135a7ea456
-          test "$(git hash-object familiars.html)" = 5990f50510322b3f9ffa69c2fe327d2d8f58aa6c
-          test "$(git hash-object version.json)" = 99766d1aa3de586c1e3b42a64befe5498d895081
-          git add -- chat.html familiars.html version.json .github/scripts/test_familiar_commands.mjs
+          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = "1b24187f81f4ace72e166615e8765d3a5e308e77"
+          test "$(git hash-object .github/scripts/test_quests.mjs)" = "b8f764497e013632001cb2b1ba4d19a82967132f"
+          test "$(git hash-object chat.html)" = "c418c97a7a0c9c83dc061f8b525b4105250d5639"
+          test "$(git hash-object familiars.html)" = "00e8777fa355c27c3981b701e3ee5f6e33b7ef78"
+          test "$(git hash-object version.json)" = "46c9e49b07bce77ecc0fee4c23a3de655606060d"
+          git add -- chat.html familiars.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble Russian familiar commands and shop'
+          git commit -m 'Assemble verified Russian familiar message forms'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f

@@ -9,6 +9,7 @@ on:
       - version.json
       - .github/scripts/update_versions.py
       - .github/scripts/test_quests.mjs
+      - .github/scripts/test_familiar_commands.mjs
       - .github/workflows/update-version.yml
   workflow_dispatch:
 
@@ -42,6 +43,7 @@ jobs:
               git switch --detach FETCH_HEAD
             fi
             node .github/scripts/test_quests.mjs
+            node .github/scripts/test_familiar_commands.mjs
             python3 .github/scripts/update_versions.py
             git add -- chat.html familiars.html version.json
             if git diff --cached --quiet; then exit 0; fi

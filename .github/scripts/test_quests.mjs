@@ -175,6 +175,37 @@ assert.equal(request(legacy,'',start+119999).changed,false);
 assert.equal(request(legacy,'',start+120000).changed,true);
 console.log('45 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
 
+// Replay the two reported quests from their offers through payment or loss.
+for (const example of [
+  {id:'mice', rolls:[0, 0.65], deposit:'1 золото', reward:'8 золота и 32 XP', won:false},
+  {id:'vane', rolls:[0.5, 0.5], deposit:'3 золота', reward:'21 золото и 34 XP', won:true}
+]) {
+  const d = player();
+  game.command(d, '', 1, start, '', () => example.rolls.shift());
+  const offer = d.questBook.current;
+  assert.equal(offer.id, example.id);
+  assert.ok(d.questBook.notes[0].text.includes(example.reward + ' · штраф ' + example.deposit + '.'));
+  deliver(d, start);
+  assert.ok(request(d, '', start + 1).text.includes('награда ' + example.reward + ', штраф ' + example.deposit + '.'));
+  d.gold = 0;
+  assert.ok(request(d, 'accept', start + 1).text.includes('нужно ' + example.deposit + ' в залог.'));
+  d.gold = 1000;
+  request(d, 'accept', start + 2, example.won ? 0 : 0.999);
+  assert.ok(d.questBook.notes[0].text.endsWith('В залоге ' + example.deposit + '.'));
+  deliver(d, start + 2);
+  assert.ok(game.advance(d, offer.due));
+  assert.ok(d.questBook.notes[0].text.includes(example.won
+    ? 'Награда — 21 золото и 34 XP. Залог возвращён.'
+    : 'Штраф — 1 золото из залога. Опыт сохранён.'));
+  assert.equal(d.gold, example.won ? 1021 : 999);
+}
+
+// Only the wording of a stored notice changes when it is delivered after an update.
+const oldNote = {text:'Награда — 21 золота и 34 XP. В залоге 1 золота. Штраф — 11 золота.', replyId:'old', offer:false};
+const oldText = oldNote.text;
+assert.equal(game.noticeText(oldNote, null), 'Награда — 21 золото и 34 XP. В залоге 1 золото. Штраф — 11 золота.');
+assert.equal(oldNote.text, oldText);
+
 // Existing two-word commands keep working; extra words cannot authorize a decision.
 for (const argument of ['принять', 'accept', 'отклонить', 'decline']) {
   const d = player();

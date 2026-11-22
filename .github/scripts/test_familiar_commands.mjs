@@ -133,7 +133,8 @@ send('viewer','!прыжок');send('viewer','!сердце');
 assert.deepEqual(moves,['jump','heart']);
 send('viewer','!общийтанец');send('viewer','!общаяатака');
 assert.equal(moves.length,2);
-send('moder','!общийтанец',true);send('moder','!общаяатака',true);
+assert.equal(send('moder','!общийтанец',true), '🎵 Массовый танец: 1 фамильяр.');
+assert.equal(send('moder','!общаяатака',true), '⚔ Массовая атака: 1 фамильяр.');
 assert.deepEqual(moves.slice(-2),['all dance','all attack']);
 
 const initial=data.viewer.gold, other=data.buyer.gold;
@@ -147,4 +148,41 @@ send('live_el','!выдатьзолото @viewer 50');send('kr4v3r','!зада�
 assert.equal(data.viewer.gold,initial+40);assert.equal(data.viewer.xp,50*8**2);
 assert.match(send('viewer','!статистика @viewer'), /уровень 9/);
 assert.match(send('viewer','!статистика @viewer extra'), /!статистика/);
+
+const goldAmount = runInContext('goldAmount', context);
+for (const [noun, amounts] of [
+  ['золото', [1, 21, 31, 101, 121]],
+  ['золота', [2, 3, 4, 5, 10, 11, 12, 13, 14, 20, 22, 25, 111, 112, 114]]
+]) {
+  for (const amount of amounts) {
+    const phrase = amount + ' ' + noun;
+    assert.equal(goldAmount(amount), phrase);
+    assert.ok(send('viewer', '!перевести @buyer ' + amount).includes('Передано ' + phrase + ' @buyer.'));
+    assert.ok(send('live_el', '!выдатьзолото @viewer ' + amount).includes('начислено ' + phrase + '.'));
+    assert.ok(filter.isFamiliarReply('separate_bot', '@viewer, 🪙 Для «Корона» нужно ' + phrase + '. У тебя 0.'));
+    assert.equal(filter.isFamiliarReply('viewer', '@friend, у меня ' + phrase), false);
+  }
+}
+assert.equal(goldAmount(0), '0 золота');
+assert.equal(goldAmount(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER + ' золото');
+
+// Exercise the actual raid label alongside both group commands.
+const raidLabel = {textContent:''};
+context.document = {
+  body:{classList:{add:noop}},
+  getElementById:id => id === 'raidHP' ? raidLabel : {classList:{add:noop}, style:{}}
+};
+const renderBoss = runInContext(between(html,'function bossText()','function raidDamage') + '\nbossText', context);
+for (const [count, familiar, fighter] of [
+  [0, 'фамильяров', 'бойцов'], [1, 'фамильяр', 'боец'], [2, 'фамильяра', 'бойца'],
+  [5, 'фамильяров', 'бойцов'], [11, 'фамильяров', 'бойцов'], [14, 'фамильяров', 'бойцов'],
+  [21, 'фамильяр', 'боец'], [22, 'фамильяра', 'бойца']
+]) {
+  context.massDance = context.massAttack = () => count;
+  assert.equal(send('moder', '!общийтанец', true), '🎵 Массовый танец: ' + count + ' ' + familiar + '.');
+  assert.equal(send('moder', '!общаяатака', true), '⚔ Массовая атака: ' + count + ' ' + familiar + '.');
+  Object.assign(context.boss, {hp:100, max:100, roster:{size:count}});
+  renderBoss();
+  assert.equal(raidLabel.textContent, '100 / 100 HP · ' + count + ' ' + fighter);
+}
 console.log('Russian commands, shop prices and saves, privileges, bilingual help and chat filtering passed.');
