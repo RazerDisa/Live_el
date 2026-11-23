@@ -71,8 +71,8 @@ function isFamiliarReply(login,message,tags={}){
  const sender=botName(login);
  const fromGameBot=sender===channel || sender==='live_el' || sender===familiarBotLogin;
  // A separately hosted chat overlay may not share the game bot's saved login.
- if(mention && (fromGameBot || !familiarBotLogin) &&
-    (content.startsWith('📜 Квест · ') || shopNotice.test(content)))return true;
+ if ((fromGameBot || !familiarBotLogin) && content.startsWith('📜 Квест · ')) return true;
+ if (mention && (fromGameBot || !familiarBotLogin) && shopNotice.test(content)) return true;
  // Public raid notices have no recipient or Twitch reply metadata.
  if ((fromGameBot || !familiarBotLogin) && /^(?:⚔ Начался рейд! Босс — «[^»]+»\. В бой! !атака или !ульта\.|🏆 Рейд завершён! Босс «[^»]+» повержен! Награда участникам — 35 золота и 60 XP\.|⌛ Рейд завершён\. Босс «[^»]+» не был повержен\. (?:Время рейда истекло|В бою не осталось фамильяров)\.)$/u.test(body)) return true;
  if(!fromGameBot)return false;
@@ -173,7 +173,7 @@ function connect(){
  ws.onclose=()=>{clearInterval(watchdog);if(generation!==connectionGeneration)return;activeSocket=null;perfStats.reconnects++;if(!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},5000)};
 }
 if(q.get('demo')==='1'){const demo=[['Live_El','Добро пожаловать, мои котята! 💙',{badges:'broadcaster/1'}],['Каспер','Рыцари, встречаем гостей! ✨',{badges:'moderator/1'}],['Котёнок','Всем уютного стрима! 🐾',{}],['Matvey','Мяу! ❤️',{badges:'vip/1'}],['Лунный котик','Мяу! Я снова с вами 💜',{badges:'subscriber/1'}]];demo.forEach((a,i)=>setTimeout(()=>add(...a),i*650))}else if(/^[a-z0-9_]{1,25}$/.test(channel))connect();
-</script><script id="live-el-auto-updater" data-project="chat" data-version="560ec07ebfb7415c">
+</script><script id="live-el-auto-updater" data-project="chat" data-version="aeb838dbffc2d6a0">
 (() => {
   'use strict';
 

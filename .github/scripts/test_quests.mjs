@@ -18,10 +18,10 @@ const weights = [32,25,18,12,7,4,1.3,0.6,0.1];
 const highest = [3,4,6,8,12,19,23,17,8];
 const durations = [30,40,50,60,90,120,150,180,240];
 const fees = [10,10,15,20,25,30,35,40,50];
-assert.equal(game.catalogue.size, 45);
-assert.equal(new Set([...game.catalogue.values()].map(q => q.title)).size, 45);
+assert.equal(game.catalogue.size, 90);
+assert.equal(new Set([...game.catalogue.values()].map(q => q.title)).size, 90);
 for (const [i, r] of game.ranks.entries()) {
-  assert.equal(r.quests.length, 5);
+  assert.equal(r.quests.length, 10);
   assert.equal(r.low, weights[i]);
   assert.equal(r.high, highest[i]);
   assert.equal(r.seconds, durations[i]);
@@ -40,13 +40,13 @@ for (const lv of [1,35,50,100]) {
     const seen = new Set();
     let last;
     const d = player();
-    for (let i=0; i<6; i++) {
+    for (let i=0; i<=r.quests.length; i++) {
       const t=start+i*120001, rolls=[(total+weight/2)/100,0.4];
       game.command(d,'',lv,t,'',()=>rolls.shift());
       const s=d.questBook.current;
       assert.equal(game.catalogue.get(s.id).rank.code,r.code);
       assert.equal(s.fee,Math.ceil(s.gold*r.penalty/100));
-      if (i<5) { assert.ok(!seen.has(s.id)); seen.add(s.id); }
+      if (i<r.quests.length) { assert.ok(!seen.has(s.id)); seen.add(s.id); }
       else assert.notEqual(s.id,last);
       last=s.id;
       deliver(d,t); request(d,'decline',t+1); deliver(d,t+1);
@@ -173,12 +173,12 @@ assert.equal(d.questBook.rest,0);
 const legacy={gold:30,xp:25,quest:start};
 assert.equal(request(legacy,'',start+119999).changed,false);
 assert.equal(request(legacy,'',start+120000).changed,true);
-console.log('45 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
+console.log('90 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
 
 // Replay the two reported quests from their offers through payment or loss.
 for (const example of [
-  {id:'mice', rolls:[0, 0.65], deposit:'1 золото', reward:'8 золота и 32 XP', won:false},
-  {id:'vane', rolls:[0.5, 0.5], deposit:'3 золота', reward:'21 золото и 34 XP', won:true}
+  {id:'mice', rolls:[0, 0.35], deposit:'1 золото', reward:'8 золота и 32 XP', won:false},
+  {id:'vane', rolls:[0.5, 0.25], deposit:'3 золота', reward:'21 золото и 34 XP', won:true}
 ]) {
   const d = player();
   game.command(d, '', 1, start, '', () => example.rolls.shift());
@@ -279,3 +279,42 @@ for (const message of ['Как принять квест?', 'Я написал !
 assert.equal(filter.isFamiliarReply('quest_bot', '@viewer, 📜 Квест · Фамильяр ещё отдыхает.'), true);
 assert.equal(filter.isFamiliarReply('another_viewer', '@viewer, какой квест тебе выпал?'), false);
 console.log('Chat filtering passed for commands, bot replies, unattended results and normal conversation.');
+
+assert.match(game.help, /90 заданий, по 10/);
+const speechStart = html.indexOf('const raidNoticePattern');
+const speechEnd = html.indexOf('function makeReplyLine', speechStart);
+assert.ok(speechStart >= 0 && speechEnd > speechStart);
+const suppressSpeech = runInNewContext(html.slice(speechStart, speechEnd) + '\nisOwnReply', {
+  channel:'live_el', authLogin:'quest_bot', botName:s=>s.toLowerCase(), ownReplies:[]
+});
+let lower = 0;
+for (const rank of game.ranks) {
+  const weight = game.rankWeight(1, rank);
+  // A returning viewer who saw the original five draws each new quest before a repeat.
+  const d = player();
+  const original = rank.quests.slice(0, 5).map(q=>q.id);
+  d.questBook = {seen:{[rank.code]:original}, notes:[], recent:[], nextOffer:0, rest:0, current:null};
+  const additions = new Set(rank.quests.slice(5).map(q=>q.id));
+  for (let i=0; i<5; i++) {
+    const time = start + i*120001, rolls = [(lower + weight/2)/100, 0];
+    game.command(d, '', 1, time, '', ()=>rolls.shift());
+    assert.ok(additions.delete(d.questBook.current.id));
+    deliver(d,time); request(d,'decline',time+1); deliver(d,time+1);
+  }
+  assert.equal(additions.size, 0);
+  for (const q of rank.quests) {
+    const terms = {id:q.id, gold:q.gold, xp:q.xp, duration:rank.seconds*1000,
+      chance:game.chanceFor(1,rank), fee:Math.ceil(q.gold*rank.penalty/100)};
+    const text = game.prefix + game.offerText(terms);
+    for (const message of [text, '@viewer, '+text]) {
+      assert.ok(filter.isFamiliarReply('quest_bot',message));
+      assert.ok(suppressSpeech('quest_bot',message));
+    }
+    const discussion = 'Как тебе квест «'+q.title+'»?';
+    assert.equal(filter.isFamiliarReply('viewer',discussion), false);
+    assert.equal(suppressSpeech('viewer',discussion), false);
+    assert.equal(filter.isFamiliarCommandMessage(q.title), false);
+  }
+  lower += weight;
+}
+console.log('All 90 quest offers pass both filters. Old five-quest histories draw each addition once.');
