@@ -1,4 +1,4 @@
-name: Verify ninety ranked quests
+name: Verify level-based quest odds
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -10,20 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Verify and assemble expanded quest catalogue
+      - name: Verify probabilities, draws and compatible saves
         run: |
           set -euo pipefail
-          python3 .github/quest-prep/apply.py
+          python3 .github/quest-odds-prep/apply.py
           node .github/scripts/test_quests.mjs
           node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_quests.mjs)" = "b368510670cf752f7829458da95cc7e63c4d543a"
-          test "$(git hash-object chat.html)" = "b778b3adfaa148866d0e5b36f99f188f4e4bab93"
-          test "$(git hash-object familiars.html)" = "922dec113532420fca42ab979facd04d31ec394c"
-          test "$(git hash-object version.json)" = "94194f291bff4d54ba2b474e06b5c768a87ebd55"
-          git add -- familiars.html chat.html version.json
+          test "$(git hash-object .github/scripts/test_quests.mjs)" = "76f4ed64ca408acb9e5d311ce2ffaef4afa3aaa4"
+          test "$(git hash-object familiars.html)" = "291a7f69a3d0457c4d94a0cba98520edd9cade22"
+          test "$(git hash-object version.json)" = "def3188088195046ac6f51c5ae2d90af81222f1d"
+          git add -- familiars.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified ninety-quest catalogue'
+          git commit -m 'Assemble verified level-based quest odds'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
