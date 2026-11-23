@@ -414,7 +414,6 @@ function flushReplies() {
 }
 const pendingRaidNotices = [];
 function notifyRaid(message) {
-  announce(message);
   if (demo || admin || !liveWriter) return;
   const auth = readAuth();
   if (!auth.login || !auth.token) return;
@@ -854,7 +853,7 @@ function attackAll(){chat('player','KR4V3R','!attackall','',true)}function setRa
 #raidBoss.raid-damage-strong img{filter:brightness(1.6) drop-shadow(0 0 22px var(--boss-glow))}
 #raidBoss.raid-burst::before{opacity:.55;transform:scale(1.12);transition:opacity .2s,transform .2s}
 #raidBoss:not(.raid-damage).raid-burst::before{opacity:0;transform:scale(1)}
-</style><script id="live-el-auto-updater" data-project="familiars" data-version="5a09c744f86d18a1">
+</style><script id="live-el-auto-updater" data-project="familiars" data-version="ae936d3d9222508b">
 (() => {
   'use strict';
 
