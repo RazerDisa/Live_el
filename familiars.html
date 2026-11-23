@@ -389,7 +389,12 @@ const helpMenu = '🐾 Королевство фамильяров. Раздел
 let chatSocket=null,chatReady=false,authLogin='';function readAuth(){try{return JSON.parse(localStorage.getItem(key+':auth')||'{}')}catch{return {}}}function gameReply(p,arg,messageId){
   const section = helpSections.get(arg) ?? arg;
   const line = Object.hasOwn(gameHelp, section) ? gameHelp[section] : helpMenu;
-  if(!demo&&(!chatReady||!authLogin||!chatSocket||chatSocket.readyState!==1)){fx(p,'Справка: нужна авторизация');return}commandReply(p,line,messageId)}function showHelp(lines){let el=document.getElementById('helpDemo');if(el){el.textContent=lines.join('\n');el.hidden=false}else announce(lines.join(' '))}let replyQueue=[],replyTimer=null;const ownReplies=[];function rememberOwnReply(line){const i=line.indexOf('PRIVMSG #'+channel+' :');if(i<0)return;const body=line.slice(i+('PRIVMSG #'+channel+' :').length),now=Date.now();while(ownReplies.length&&(now-ownReplies[0].time>30000||ownReplies.length>=100))ownReplies.shift();ownReplies.push({body,time:now})}function isOwnReply(login,body){if(botName(login)!==botName(authLogin))return false;if(/^@[a-z0-9_]+,\s*📜 Квест · /iu.test(body))return true;const now=Date.now();while(ownReplies.length&&now-ownReplies[0].time>30000)ownReplies.shift();const i=ownReplies.findIndex(x=>x.body===body);if(i<0)return false;ownReplies.splice(i,1);return true}function makeReplyLine(login, message, messageId) {
+  if(!demo&&(!chatReady||!authLogin||!chatSocket||chatSocket.readyState!==1)){fx(p,'Справка: нужна авторизация');return}commandReply(p,line,messageId)}function showHelp(lines){let el=document.getElementById('helpDemo');if(el){el.textContent=lines.join('\n');el.hidden=false}else announce(lines.join(' '))}let replyQueue=[],replyTimer=null;const ownReplies=[];function rememberOwnReply(line){const i=line.indexOf('PRIVMSG #'+channel+' :');if(i<0)return;const body=line.slice(i+('PRIVMSG #'+channel+' :').length),now=Date.now();while(ownReplies.length&&(now-ownReplies[0].time>30000||ownReplies.length>=100))ownReplies.shift();ownReplies.push({body,time:now})}const raidNoticePattern = /^(?:⚔ Начался рейд! Босс — «[^»]+»\. В бой! !атака или !ульта\.|🏆 Рейд завершён! Босс «[^»]+» повержен! Награда участникам — 35 золота и 60 XP\.|⌛ Рейд завершён\. Босс «[^»]+» не был повержен\. (?:Время рейда истекло|В бою не осталось фамильяров)\.)$/u;
+function isOwnReply(login,body){
+  const sender = botName(login);
+  // A second source or a reconnected socket can receive a notice it never sent.
+  if ((!authLogin || sender === channel || sender === botName(authLogin)) && raidNoticePattern.test(body)) return true;
+  if(sender!==botName(authLogin))return false;if(/^@[a-z0-9_]+,\s*📜 Квест · /iu.test(body))return true;const now=Date.now();while(ownReplies.length&&now-ownReplies[0].time>30000)ownReplies.shift();const i=ownReplies.findIndex(x=>x.body===body);if(i<0)return false;ownReplies.splice(i,1);return true}function makeReplyLine(login, message, messageId) {
   const tag = /^[a-zA-Z0-9-]+$/.test(messageId || '') ? '@reply-parent-msg-id=' + messageId + ' ' : '';
   const body = 'PRIVMSG #' + channel + ' :@' + login + ', ' + message.replace(/[\r\n\0]+/g, ' ');
   return tag + body;
@@ -853,7 +858,7 @@ function attackAll(){chat('player','KR4V3R','!attackall','',true)}function setRa
 #raidBoss.raid-damage-strong img{filter:brightness(1.6) drop-shadow(0 0 22px var(--boss-glow))}
 #raidBoss.raid-burst::before{opacity:.55;transform:scale(1.12);transition:opacity .2s,transform .2s}
 #raidBoss:not(.raid-damage).raid-burst::before{opacity:0;transform:scale(1)}
-</style><script id="live-el-auto-updater" data-project="familiars" data-version="ae936d3d9222508b">
+</style><script id="live-el-auto-updater" data-project="familiars" data-version="91ae139f5c536f0e">
 (() => {
   'use strict';
 
