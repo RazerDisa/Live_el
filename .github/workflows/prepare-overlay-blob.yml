@@ -1,4 +1,4 @@
-name: Verify raid speech filtering
+name: Verify ninety ranked quests
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -10,18 +10,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Verify and assemble overlay
+      - name: Verify and assemble expanded quest catalogue
         run: |
           set -euo pipefail
-          python3 .github/raid-notice-prep/apply.py
+          python3 .github/quest-prep/apply.py
           node .github/scripts/test_quests.mjs
           node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object familiars.html)" = "208b8a11e0a773f7cb48bad83247352cbc0e9576"
-          test "$(git hash-object version.json)" = "e656503b15393066a78ad21410f43b0bbdb78744"
-          git add -- familiars.html version.json
+          test "$(git hash-object .github/scripts/test_quests.mjs)" = "b368510670cf752f7829458da95cc7e63c4d543a"
+          test "$(git hash-object chat.html)" = "b778b3adfaa148866d0e5b36f99f188f4e4bab93"
+          test "$(git hash-object familiars.html)" = "922dec113532420fca42ab979facd04d31ec394c"
+          test "$(git hash-object version.json)" = "94194f291bff4d54ba2b474e06b5c768a87ebd55"
+          git add -- familiars.html chat.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified raid speech filter'
+          git commit -m 'Assemble verified ninety-quest catalogue'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
