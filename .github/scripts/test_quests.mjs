@@ -14,16 +14,12 @@ const deliver = (d, t) => {
 };
 const reload = d => JSON.parse(JSON.stringify(d));
 const request = (d, argument, t, roll = 0, id = '') => game.command(d, argument, 1, t, id, () => roll);
-const weights = [32,25,18,12,7,4,1.3,0.6,0.1];
-const highest = [3,4,6,8,12,19,23,17,8];
 const durations = [30,40,50,60,90,120,150,180,240];
 const fees = [10,10,15,20,25,30,35,40,50];
 assert.equal(game.catalogue.size, 90);
 assert.equal(new Set([...game.catalogue.values()].map(q => q.title)).size, 90);
 for (const [i, r] of game.ranks.entries()) {
   assert.equal(r.quests.length, 10);
-  assert.equal(r.low, weights[i]);
-  assert.equal(r.high, highest[i]);
   assert.equal(r.seconds, durations[i]);
   assert.equal(r.penalty, fees[i]);
   assert.equal(game.chanceFor(r.level,r), [80,77,70,70,70,70,70,70,70][i]);
@@ -32,72 +28,39 @@ for (const [i, r] of game.ranks.entries()) {
 assert.equal(game.chanceFor(35,game.ranks[4]), 60);
 assert.equal(game.chanceFor(100,game.ranks[8]), 80);
 
-// Every level uses a normalized distribution. Every rank can be drawn at both endpoints.
-for (const lv of [1,35,50,100]) {
-  let total = 0;
-  for (const r of game.ranks) {
-    const weight = game.rankWeight(lv, r);
-    const seen = new Set();
-    let last;
-    const d = player();
-    for (let i=0; i<=r.quests.length; i++) {
-      const t=start+i*120001, rolls=[(total+weight/2)/100,0.4];
-      game.command(d,'',lv,t,'',()=>rolls.shift());
-      const s=d.questBook.current;
-      assert.equal(game.catalogue.get(s.id).rank.code,r.code);
-      assert.equal(s.fee,Math.ceil(s.gold*r.penalty/100));
-      if (i<r.quests.length) { assert.ok(!seen.has(s.id)); seen.add(s.id); }
-      else assert.notEqual(s.id,last);
-      last=s.id;
-      deliver(d,t); request(d,'decline',t+1); deliver(d,t+1);
-    }
-    total+=weight;
-  }
-  assert.ok(Math.abs(total-100)<1e-9);
-}
-
-// Compare all 100 levels to the pre-beginner balance. XP per minute includes the
-// automatic journey and its rest, assuming immediate acceptance and enough gold.
-const baseWeight = (lv, r) => r.low + (r.high - r.low) * (lv - 1) / 99;
-const baseChance = (lv, r) => Math.max(5, Math.min(95, 70 + 2 * (lv - r.level)));
+// Verify the full curve, including levels between the five design targets.
+const targets = [
+  [1,   [65,28,5,1,0.5,0.2,0.15,0.1,0.05]],
+  [25,  [12,22,37,22,5,1.2,0.5,0.2,0.1]],
+  [50,  [3,6,12,24,34,16,3.5,1,0.5]],
+  [75,  [1,2,4,8,16,29,30,8,2]],
+  [100, [0.5,0.5,1,2,4,8,24,36,24]]
+];
 const near = (x, y) => assert.ok(Math.abs(x - y) < 1e-9, x + ' != ' + y);
-function expectedRate(lv, weight, chance) {
-  let xp = 0, seconds = 0;
-  for (const rank of game.ranks) {
-    const share = weight(lv, rank) / 100;
-    const averageXp = rank.quests.reduce((sum, q) => sum + q.xp, 0) / rank.quests.length;
-    xp += share * (chance(lv, rank) / 100) * averageXp;
-    seconds += share * rank.seconds * 1.5;
-  }
-  return xp * 60 / seconds;
-}
-const [g, f] = game.ranks;
-near(game.rankWeight(1, g) + game.rankWeight(1, f), 65.6);
-assert.equal(game.chanceFor(1, g), 80);
-assert.equal(game.chanceFor(1, f), 66);
-for (let lv = 1; lv <= 100; lv++) {
-  let total = 0;
-  for (const rank of game.ranks) {
-    const weight = game.rankWeight(lv, rank), chance = game.chanceFor(lv, rank);
-    assert.ok(weight > 0 && chance >= 5 && chance <= 95);
-    total += weight;
-    if (lv <= 20 && (rank === g || rank === f)) {
-      assert.ok(weight > baseWeight(lv, rank));
-      assert.equal(chance, Math.min(95, baseChance(lv, rank) + Math.ceil((21 - lv) / 2)));
-    } else {
-      assert.equal(chance, baseChance(lv, rank));
+let previous;
+for (let level = 1; level <= 100; level++) {
+  const odds = game.ranks.map(rank=>game.rankWeight(level, rank));
+  const upper = targets.findIndex(([limit])=>level <= limit);
+  const [lo, from] = targets[Math.max(0,upper-1)], [hi,to] = targets[upper];
+  const t = hi === lo ? 0 : (level-lo)/(hi-lo);
+  for (const [i,rank] of game.ranks.entries()) {
+    assert.ok(odds[i]>0);
+    near(odds[i], from[i]+(to[i]-from[i])*t);
+    if (i && previous) {
+      // At every level the chance of this rank OR harder increases.
+      const sum = list=>list.slice(i).reduce((a,b)=>a+b,0);
+      assert.ok(sum(odds)>sum(previous));
     }
-    if (lv >= 21) near(weight, baseWeight(lv, rank));
+    const bonus = i<2 && level<=20 ? Math.ceil((21-level)/2) : 0;
+    const success = Math.max(5,Math.min(95,70+2*(level-rank.level)+bonus));
+    assert.equal(game.chanceFor(level,rank),success);
   }
-  near(total, 100);
-  const improvement = expectedRate(lv, game.rankWeight, game.chanceFor) / expectedRate(lv, baseWeight, baseChance);
-  if (lv <= 20) assert.ok(improvement > 1 && improvement < 1.22, 'XP rate at level ' + lv);
-  else near(improvement, 1);
+  near(odds.reduce((a,b)=>a+b,0),100);
+  previous = odds;
 }
-
 // Exercise the actual offer draw across evenly spaced random values; this detects
 // changes to the selection code even if the weight function itself is correct.
-for (const lv of [1, 10, 20, 21, 100]) {
+for (const lv of [1, 13, 25, 37, 50, 64, 75, 88, 100]) {
   const counts = new Map(game.ranks.map(rank => [rank.code, 0]));
   const draws = 10000;
   for (let i = 0; i < draws; i++) {
@@ -173,12 +136,12 @@ assert.equal(d.questBook.rest,0);
 const legacy={gold:30,xp:25,quest:start};
 assert.equal(request(legacy,'',start+119999).changed,false);
 assert.equal(request(legacy,'',start+120000).changed,true);
-console.log('90 quests: rank odds, no repeats, deadlines, reservations, payouts, rest, retries and old saves passed.');
+console.log('90 quests: level-based rank odds, independent draws, deadlines, reservations, payouts, rest, retries and old saves passed.');
 
 // Replay the two reported quests from their offers through payment or loss.
 for (const example of [
   {id:'mice', rolls:[0, 0.35], deposit:'1 золото', reward:'8 золота и 32 XP', won:false},
-  {id:'vane', rolls:[0.5, 0.25], deposit:'3 золота', reward:'21 золото и 34 XP', won:true}
+  {id:'vane', rolls:[0.8, 0.25], deposit:'3 золота', reward:'21 золото и 34 XP', won:true}
 ]) {
   const d = player();
   game.command(d, '', 1, start, '', () => example.rolls.shift());
@@ -227,7 +190,7 @@ for (const argument of ['принять', 'accept', 'отклонить', 'decli
     assert.equal(d.gold, 1000);
   }
 }
-for (const example of ['!беру','!пас','!qtake','!qskip','1–20','G и F']) {
+for (const example of ['!беру','!пас','!qtake','!qskip','93%','G или F','Возможны повторы']) {
   assert.ok(game.help.includes(example));
 }
 
@@ -290,18 +253,21 @@ const suppressSpeech = runInNewContext(html.slice(speechStart, speechEnd) + '\ni
 let lower = 0;
 for (const rank of game.ranks) {
   const weight = game.rankWeight(1, rank);
-  // A returning viewer who saw the original five draws each new quest before a repeat.
+  // Previous-version saves can list every quest as seen. It must not affect any draw.
   const d = player();
-  const original = rank.quests.slice(0, 5).map(q=>q.id);
-  d.questBook = {seen:{[rank.code]:original}, notes:[], recent:[], nextOffer:0, rest:0, current:null};
-  const additions = new Set(rank.quests.slice(5).map(q=>q.id));
-  for (let i=0; i<5; i++) {
-    const time = start + i*120001, rolls = [(lower + weight/2)/100, 0];
-    game.command(d, '', 1, time, '', ()=>rolls.shift());
-    assert.ok(additions.delete(d.questBook.current.id));
-    deliver(d,time); request(d,'decline',time+1); deliver(d,time+1);
+  d.questBook = {seen:{[rank.code]:rank.quests.map(q=>q.id)}, notes:[], recent:[], nextOffer:0, rest:0, current:null};
+  assert.ok(game.validBook(d.questBook));
+  let time = start;
+  for (const [index,q] of rank.quests.entries()) {
+    for (let repeat=0; repeat<2; repeat++) {
+      const rolls = [(lower+weight/2)/100, (index+0.5)/rank.quests.length];
+      game.command(d, '', 1, time, '', ()=>rolls.shift());
+      assert.equal(d.questBook.current.id,q.id);
+      assert.equal(d.questBook.current.fee,Math.ceil(q.gold*rank.penalty/100));
+      deliver(d,time); request(d,'decline',time+1); deliver(d,time+1);
+      time+=120001;
+    }
   }
-  assert.equal(additions.size, 0);
   for (const q of rank.quests) {
     const terms = {id:q.id, gold:q.gold, xp:q.xp, duration:rank.seconds*1000,
       chance:game.chanceFor(1,rank), fee:Math.ceil(q.gold*rank.penalty/100)};
@@ -317,4 +283,4 @@ for (const rank of game.ranks) {
   }
   lower += weight;
 }
-console.log('All 90 quest offers pass both filters. Old five-quest histories draw each addition once.');
+console.log('All 90 quest offers pass both filters. Every quest can recur immediately, including with old saved histories.');
