@@ -1,4 +1,4 @@
-name: Verify level-based quest odds
+name: Verify mystic familiar walk
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -10,19 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Verify probabilities, draws and compatible saves
+      - name: Assemble and verify embedded walk poses
         run: |
           set -euo pipefail
-          python3 .github/quest-odds-prep/apply.py
+          cat .github/mystic-prep/part-* | base64 -d > .github/mystic-prep/walk.webp
+          python3 .github/mystic-prep/port.py
           node .github/scripts/test_quests.mjs
           node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_quests.mjs)" = "76f4ed64ca408acb9e5d311ce2ffaef4afa3aaa4"
-          test "$(git hash-object familiars.html)" = "291a7f69a3d0457c4d94a0cba98520edd9cade22"
-          test "$(git hash-object version.json)" = "def3188088195046ac6f51c5ae2d90af81222f1d"
+          test "$(git hash-object familiars.html)" = "269a566880f6b13b2b9d63044b6eac421c7356a9"
+          test "$(git hash-object version.json)" = "03d2addbca5fcd8d4dc019ffb57b060eb7b4655e"
           git add -- familiars.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified level-based quest odds'
+          git commit -m 'Assemble verified mystic walk cycle'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
