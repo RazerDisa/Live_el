@@ -228,3 +228,32 @@ for (const [count, familiar, fighter] of [
   assert.equal(raidLabel.textContent, '100 / 100 HP · ' + count + ' ' + fighter);
 }
 console.log('Russian commands, shop prices and saves, privileges, bilingual help and chat filtering passed.');
+
+// A sleeping familiar can remain on screen past the AFK timeout without scaling a raid.
+const sleepPoses = JSON.parse(between(html, 'const sleepPoses = ', ';\nconst sleepBounds', false));
+assert.deepEqual(Object.keys(sleepPoses).sort(), [...Object.keys(types), 'royal'].sort());
+assert.equal(new Set(Object.values(sleepPoses)).size, 10);
+for (const src of Object.values(sleepPoses)) assert.ok(src.startsWith('data:image/webp;base64,UklGR'));
+const sleepPets = new Map();
+const sleepTest = {
+  pets:sleepPets, demo:false, isBot:()=>false, raidDamage:()=>7, sessionCooldowns:new Map(),
+  removePet:id=>sleepPets.delete(id), syncRaid:noop, cancelPetAttack:noop,
+  startJump:noop, startDance:noop, fx:noop, boss:{ids:new Set(['sleeper'])}
+};
+const sleepGame = runInNewContext(
+  between(html, 'const ACTIVE_MS=', 'const RAID_HP_MULTIPLIER=') +
+  between(html, 'function requestMotion(', 'function runPending(') +
+  '\n({requestMotion, raidRoster, pruneInactive})', sleepTest
+);
+const sleeper={id:'sleeper',last:Date.now(),d:{},el:{isConnected:true}};
+sleepPets.set('sleeper',sleeper);
+sleepPets.set('inactive',{...sleeper,id:'inactive'});
+sleepGame.requestMotion(sleeper,'sleep',Date.now());
+sleepGame.pruneInactive(Date.now()+125000);
+assert.ok(sleepPets.has('sleeper'));
+assert.ok(!sleepPets.has('inactive'));
+assert.ok(!sleepTest.boss.ids.has('sleeper'));
+assert.equal(sleepGame.raidRoster().size,0);
+sleepGame.requestMotion(sleeper,'jump',Date.now());
+assert.equal(sleepGame.raidRoster().get('sleeper'),7);
+console.log('Sleep artwork, inactivity protection, raid exclusion and waking passed.');
