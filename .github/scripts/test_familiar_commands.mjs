@@ -25,7 +25,7 @@ function spawn(id, nick) {
 const noop = () => {};
 const context = createContext({
   accessories, types, aliases, elements:{}, data, pets, demo:true, admin:false,
-  Date:{now:()=>now}, spawn, isBot:()=>false, imperial:()=>false,
+  Date:{now:()=>now}, spawn, isBot:()=>false,
   render:noop, persist:noop, fx:noop, pruneInactive:noop, syncRaid:noop,
   commandReply:(_p, line)=>replies.push(line), requestMotion:(_p,kind)=>moves.push(kind),
   startElementalHeart:()=>moves.push('heart'), massDance:()=>{moves.push('all dance');return 1;},
@@ -34,6 +34,8 @@ const context = createContext({
 const source = [
   between(html,'<script id="ranked-quests">','</script>',false),
   between(html,'function level(d)','const artwork='),
+  between(html,'const lunarKeeperName =','normalizeRoster(data);'),
+  between(html,'function imperial(p)','// Standalone renderer'),
   between(html,'function inventory(d)','const bounds='),
   between(html,'function reward(p,x,g)','const speechOwners='),
   between(html,'const shortItemNames =','let chatSocket='),
@@ -158,6 +160,24 @@ assert.equal(moves.length,2);
 assert.equal(send('moder','!общийтанец',true), '🎵 Массовый танец: 1 фамильяр.');
 assert.equal(send('moder','!общаяатака',true), '⚔ Массовая атака: 1 фамильяр.');
 assert.deepEqual(moves.slice(-2),['all dance','all attack']);
+
+const lunarProfile = send('live_el', '!мойфамильяр');
+assert.match(lunarProfile, /^🌙 Твой фамильяр — Лунный хранитель\. В его золотой короне дремлет лунный свет\./u);
+assert.equal(data.live_el.type, 'royal');
+for (const cmd of ['!mypet', '!pet ice', '!питомец огонь']) {
+  assert.equal(send('live_el', cmd), lunarProfile);
+  assert.equal(data.live_el.type, 'royal');
+}
+assert.ok(filter.isFamiliarReply('separate_bot', '@live_el, ' + lunarProfile));
+assert.equal(filter.isFamiliarReply('viewer', 'Мне нравится Лунный хранитель.'), false);
+const normalize = runInContext('normalizeRoster', context);
+const roster = {1:{login:'Live_EL', type:'ice', gold:21}, 2:{login:'viewer', nick:'Live_El', type:'water'}};
+assert.equal(normalize(roster), true);
+assert.deepEqual(roster[1], {login:'Live_EL', type:'royal', gold:21});
+assert.equal(roster[2].type, 'water');
+assert.equal(normalize(roster), false);
+send('reader', '!питомец royal');
+assert.equal(data.reader.type, 'psychic');
 
 const initial=data.viewer.gold, other=data.buyer.gold;
 send('viewer','!перевести @buyer 10');

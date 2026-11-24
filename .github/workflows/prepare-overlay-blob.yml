@@ -1,4 +1,4 @@
-name: Verify Mystic walk clipping
+name: Verify lunar keeper
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -6,22 +6,24 @@ on:
 permissions:
   contents: write
 jobs:
-  verify:
+  assemble:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Verify and assemble corrected overlay
+      - name: Assemble and verify overlay files
         run: |
           set -euo pipefail
-          python3 .github/mystic-clip/apply.py
+          python3 .github/lunar-prep/apply.py
           node .github/scripts/test_quests.mjs
           node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object familiars.html)" = "f242acdff7815f10cc90faf80dce1767ffdfd738"
-          test "$(git hash-object version.json)" = "e68f29426783cbaba2bd8da64dd13b90e21fad44"
-          git add -- familiars.html version.json
+          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = "a9b39f621ec51fc623e3d73a82bf2cbb5679ef5e"
+          test "$(git hash-object chat.html)" = "1edce88d29aa74025447edd9957ba1fddc6993b4"
+          test "$(git hash-object familiars.html)" = "ae6f5badea12975dfef2be2e67dc945b8c200cb0"
+          test "$(git hash-object version.json)" = "791e42406c42d69f29a41def0fca7e687897a0a7"
+          git add -- familiars.html chat.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified Mystic clipping fix'
+          git commit -m 'Assemble verified Lunar Keeper profile'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
