@@ -127,6 +127,28 @@ for (const [id, word] of Object.entries({fire:'огонь',water:'вода',natu
   send('viewer','!pet '+types[id][0]);
   assert.equal(data.viewer.type,id);
 }
+const descriptions = new Set();
+for (const [type, [name]] of Object.entries(types)) {
+  send('reader', '!pet ' + type);
+  const { gold, xp, style } = data.reader;
+  const profile = send('reader', '!мойфамильяр');
+  const prefix = '🐾 Твой фамильяр — ' + name + '. ';
+  assert.ok(profile.startsWith(prefix));
+  const description = profile.slice(prefix.length);
+  assert.ok(description.length > 20 && !description.includes('undefined'));
+  descriptions.add(description);
+  assert.equal(send('reader', '!MYPET'), profile);
+  assert.deepEqual([data.reader.type, data.reader.gold, data.reader.xp, data.reader.style], [type, gold, xp, style]);
+  assert.ok(filter.isFamiliarReply('separate_bot', '@reader, ' + profile));
+}
+assert.equal(descriptions.size, Object.keys(types).length);
+assert.match(send('new_viewer', '!mypet'), /Твой фамильяр — Огненный/);
+assert.match(send('reader', '!mypet'), /Твой фамильяр — Мистический/);
+assert.match(send('reader', '!справка питомцы'), /!мойфамильяр или !mypet/);
+for (const text of ['!ктоя', '!мойфамильярчик', 'Мне подсказали !mypet']) {
+  assert.equal(filter.isFamiliarCommandMessage(text), false);
+}
+assert.equal(send('reader', '!ктоя'), undefined);
 send('viewer','!питомец fox');
 assert.equal(data.viewer.type,'water');
 send('viewer','!прыжок');send('viewer','!сердце');
