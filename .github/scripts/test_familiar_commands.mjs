@@ -41,6 +41,7 @@ const source = [
   between(html,'const shortItemNames =','let chatSocket='),
   between(html,'function gameReply(p,arg,messageId)','function showHelp'),
   between(html,'function transferGold(','// Deadlines belong'),
+  between(html,'function wakePet(', 'function runPending('),
   between(html,'const commandAliases =','function requestCombat')
 ].join('\n');
 runInContext(source, context);
@@ -89,6 +90,20 @@ for (const [ru,en] of Object.entries({питомцы:'pet',действия:'act
   assert.equal(russian,send('viewer','!elgame '+en));
   assert.equal(russian,send('viewer','!elgame '+ru));
 }
+const wakeUser = spawn('napper','napper');
+wakeUser.sleep = true;
+const wakeLine = send('napper','!ПРОСНУТЬСЯ');
+assert.equal(wakeLine,'🐾 Твой фамильяр проснулся.');
+assert.equal(wakeUser.sleep,false);
+const awakeLine = send('napper','!wake');
+assert.equal(awakeLine,'🐾 Твой фамильяр уже бодрствует.');
+for (const line of [wakeLine, awakeLine]) {
+  assert.ok(filter.isFamiliarReply('separate_bot','@napper, ' + line));
+}
+for (const text of ['Пора !проснуться', '!проснутьсяпора', '!wakeful']) {
+  assert.equal(filter.isFamiliarCommandMessage(text),false);
+}
+assert.match(send('napper','!справка действия'), /!проснуться\/!wake/);
 const shopHelp = send('viewer','!стиль');
 assert.equal(shopHelp,send('viewer','!справка украшения'));
 for (const word of ['фонарик','крылья','аура']) assert.ok(shopHelp.includes(word));
