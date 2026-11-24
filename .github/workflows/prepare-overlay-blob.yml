@@ -1,4 +1,4 @@
-name: Verify lunar keeper
+name: Verify imperial aura
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -6,24 +6,22 @@ on:
 permissions:
   contents: write
 jobs:
-  assemble:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Assemble and verify overlay files
+      - name: Assemble and verify the overlay
         run: |
           set -euo pipefail
-          python3 .github/lunar-prep/apply.py
-          node .github/scripts/test_quests.mjs
+          python3 .github/aura-prep/apply.py
           node .github/scripts/test_familiar_commands.mjs
+          node .github/scripts/test_quests.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = "a9b39f621ec51fc623e3d73a82bf2cbb5679ef5e"
-          test "$(git hash-object chat.html)" = "1edce88d29aa74025447edd9957ba1fddc6993b4"
-          test "$(git hash-object familiars.html)" = "ae6f5badea12975dfef2be2e67dc945b8c200cb0"
-          test "$(git hash-object version.json)" = "791e42406c42d69f29a41def0fca7e687897a0a7"
-          git add -- familiars.html chat.html version.json
+          test "$(git hash-object familiars.html)" = "1103642456fecc2d67852102dc45765030a14ce3"
+          test "$(git hash-object version.json)" = "957c3dc22f28c6eb34eebb0bede74dda9afdb67a"
+          git add -- familiars.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified Lunar Keeper profile'
+          git commit -m 'Assemble verified imperial aura'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
