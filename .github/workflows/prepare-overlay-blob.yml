@@ -1,4 +1,4 @@
-name: Verify familiar profile command
+name: Verify Mystic walk clipping
 on:
   push:
     branches: [prepare/overlay-update-2026-11-21-fa7201f]
@@ -6,24 +6,22 @@ on:
 permissions:
   contents: write
 jobs:
-  assemble:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Assemble and verify overlay files
+      - name: Verify and assemble corrected overlay
         run: |
           set -euo pipefail
-          python3 .github/mypet-prep/apply.py
+          python3 .github/mystic-clip/apply.py
           node .github/scripts/test_quests.mjs
           node .github/scripts/test_familiar_commands.mjs
           python3 .github/scripts/update_versions.py
-          test "$(git hash-object .github/scripts/test_familiar_commands.mjs)" = "85e3d473e5b7685c0f6cc756296b28628c4c5bfb"
-          test "$(git hash-object chat.html)" = "6cecb3358ab92d8e56110b9e1fdeaafdb3b6a724"
-          test "$(git hash-object familiars.html)" = "013478172953a29b2035c0b90a440b910d1bb913"
-          test "$(git hash-object version.json)" = "2cecbc3b8b54d2230dc5c55fcbae5357408acf95"
-          git add -- familiars.html chat.html version.json
+          test "$(git hash-object familiars.html)" = "f242acdff7815f10cc90faf80dce1767ffdfd738"
+          test "$(git hash-object version.json)" = "e68f29426783cbaba2bd8da64dd13b90e21fad44"
+          git add -- familiars.html version.json
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble verified familiar profile command'
+          git commit -m 'Assemble verified Mystic clipping fix'
           git push origin HEAD:refs/heads/prepare/overlay-update-2026-11-21-fa7201f
